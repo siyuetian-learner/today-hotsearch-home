@@ -12,6 +12,7 @@
 ```bash
 npm --workspace client run build
 node --check server/index.js
+node --check server/app.js
 node --check server/services/weibo.js
 node --check server/services/zhihu.js
 node --check server/services/bilibili.js
@@ -50,6 +51,14 @@ docs/evidence/server-cache.log
 docs/evidence/homepage-react.png
 ```
 
+线上验证证据：
+
+```text
+docs/evidence/online-homepage-vercel.png
+docs/evidence/online-ai-filter-vercel.png
+docs/evidence/online-api-summary-vercel.json
+```
+
 ```text
 GET http://127.0.0.1:3001/api/hot?refresh=1
 结果：
@@ -74,6 +83,9 @@ GET http://127.0.0.1:3001/api/hot?refresh=1
 - [x] 失败或降级平台不影响其他平台。
 - [x] GitHub / Hugging Face 显示“国内入口 / 原站”。
 - [x] 页脚合规文案存在。
+- [x] 线上前端 `https://today-hotsearch-home.vercel.app` 可访问。
+- [x] 线上后端 `https://today-hotsearch-home-server.vercel.app/api/hot` 返回 6 个平台。
+- [x] 线上前端构建包包含 `today-hotsearch-home-server.vercel.app`，`VITE_API_BASE` 生效。
 
 ## 已修复问题
 
@@ -81,6 +93,7 @@ GET http://127.0.0.1:3001/api/hot?refresh=1
 2. 英文界面词过多：面向中文用户重写 UI 文案。
 3. GitHub / Hugging Face 访问不稳定：增加国内入口和降级推荐列表。
 4. 静态页不符合教程结构：迁移为 `client/ + server/`。
+5. Railway 账号 trial expired 阻塞部署：改为 Vercel 前端 + Vercel Express 后端双项目部署。
 
 ## 剩余风险
 

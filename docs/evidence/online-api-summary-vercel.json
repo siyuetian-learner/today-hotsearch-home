@@ -1,0 +1,50 @@
+﻿{
+    "checkedAt":  "2026-06-03T22:48:56",
+    "frontendUrl":  "https://today-hotsearch-home.vercel.app",
+    "apiBase":  "https://today-hotsearch-home-server.vercel.app",
+    "ttlSec":  600,
+    "platforms":  [
+                      {
+                          "source":  "weibo",
+                          "sourceName":  "微博热搜",
+                          "itemCount":  10,
+                          "degraded":  null,
+                          "error":  null
+                      },
+                      {
+                          "source":  "zhihu",
+                          "sourceName":  "知乎热榜",
+                          "itemCount":  10,
+                          "degraded":  true,
+                          "error":  null
+                      },
+                      {
+                          "source":  "bilibili",
+                          "sourceName":  "B站热搜",
+                          "itemCount":  10,
+                          "degraded":  null,
+                          "error":  null
+                      },
+                      {
+                          "source":  "huggingface",
+                          "sourceName":  "Hugging Face",
+                          "itemCount":  10,
+                          "degraded":  false,
+                          "error":  null
+                      },
+                      {
+                          "source":  "aihot",
+                          "sourceName":  "AI HOT",
+                          "itemCount":  10,
+                          "degraded":  null,
+                          "error":  null
+                      },
+                      {
+                          "source":  "github",
+                          "sourceName":  "GitHub",
+                          "itemCount":  10,
+                          "degraded":  false,
+                          "error":  null
+                      }
+                  ]
+}

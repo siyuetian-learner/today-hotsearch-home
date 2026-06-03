@@ -2,6 +2,11 @@
 
 21 天 Vibe Coding 实战项目：一个面向中文用户的多平台热榜聚合站，聚合中文热点、AI 动态与开源项目。
 
+线上地址：
+
+- 前端：https://today-hotsearch-home.vercel.app
+- 后端 API：https://today-hotsearch-home-server.vercel.app
+
 ## 当前能力
 
 - 前端：React + TypeScript + Vite + CSS
@@ -90,7 +95,7 @@ GET /api/hot/:source?q=OpenAI&refresh=1
 
 |变量|说明|
 |---|---|
-|VITE_API_BASE|生产后端地址，例如 Railway 域名|
+|VITE_API_BASE|生产后端地址，例如 Vercel Express 后端域名|
 
 后端 `server/.env`：
 
@@ -126,6 +131,8 @@ npm run dev:server
 ```
 
 ## 部署
+
+最终采用 Vercel 双项目部署：前端项目 `today-hotsearch-home`，后端项目 `today-hotsearch-home-server`。Railway 部署尝试时账号提示 `Trial expired`，因此改用 Vercel Express 后端。
 
 详见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
 

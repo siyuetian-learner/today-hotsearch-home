@@ -2,6 +2,8 @@
 
 本项目是 21 天 Vibe Coding 实战的「今日热搜」聚合站。我从最初的静态 Mock 页面开始，逐步完成了需求研究、PRD、技术设计、AI 开发指令、前端页面、后端接口、缓存、真实数据接入、容错、部署说明和最终总结。现在项目已经迁移为 `client/ + server/` 的结构，前端使用 React + TypeScript + Vite，后端使用 Express，符合教程主路径的工程要求。
 
+最终线上首页为 `https://today-hotsearch-home.vercel.app`，后端 API 为 `https://today-hotsearch-home-server.vercel.app`。原计划使用 Railway 部署后端，但 Railway 账号提示 trial expired，最终改为 Vercel 前端 + Vercel Express 后端双项目部署。
+
 产品定位上，我把它设计成一个面向中文用户的多平台热榜聚合页。用户打开页面后，可以快速浏览微博、知乎、B站、AI 模型、AI 资讯和开源项目。页面支持分类 Tab，包括全部、综合热点、AI 热点和开源项目；支持关键词搜索、刷新、单卡重试、展开前 10 条和今日焦点。相比单独打开多个平台，这种聚合方式能减少信息切换成本，适合每天快速扫一眼热点。
 
 技术实现上，最大的重点是统一数据模型。不同平台返回的数据结构差异很大，微博有 `data.realtime`，B站有 `list`，AI HOT 有 `items`，GitHub 和 Hugging Face 又有不同的仓库或模型字段。后端服务层把这些数据统一转换成 HotPlatform 和 HotItem，让前端只关心 rank、title、heat、url、summary 等稳定字段。这样后续新增平台时，只需要增加一个 service，而不需要改动大量前端逻辑。
@@ -17,5 +19,5 @@
 - 需求文档完整度：5/5
 - 前端完成度：4/5
 - 后端与数据：4/5
-- 部署准备：4/5
+- 部署完成度：5/5
 - 问题排查与 AI 协作：5/5
