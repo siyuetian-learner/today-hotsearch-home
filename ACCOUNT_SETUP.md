@@ -32,6 +32,13 @@ https://github.com/siyuetian-learner/today-hotsearch-home
 - Root Directory：`server`
 - Framework：Express
 
+国内公网入口：
+
+- 平台：飞书妙搭
+- URL：https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/
+- 可用范围：互联网公开，免登录
+- 说明：用于分享给国内用户；实时接口不可达时展示离线快照。
+
 ## 知识星球打卡
 
 AI 已生成 `DAILY_CHECKINS.md`，发布时请补充截图、线上链接和真实体验。

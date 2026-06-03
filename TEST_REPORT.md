@@ -57,6 +57,7 @@ docs/evidence/homepage-react.png
 docs/evidence/online-homepage-vercel.png
 docs/evidence/online-ai-filter-vercel.png
 docs/evidence/online-api-summary-vercel.json
+docs/evidence/miaoda-public-homepage.png
 ```
 
 ```text
@@ -86,6 +87,8 @@ GET http://127.0.0.1:3001/api/hot?refresh=1
 - [x] 线上前端 `https://today-hotsearch-home.vercel.app` 可访问。
 - [x] 线上后端 `https://today-hotsearch-home-server.vercel.app/api/hot` 返回 6 个平台。
 - [x] 线上前端构建包包含 `today-hotsearch-home-server.vercel.app`，`VITE_API_BASE` 生效。
+- [x] 国内公网入口 `https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/` 可打开。
+- [x] 公网入口在实时 API 不可达时自动展示 6 平台离线快照。
 
 ## 已修复问题
 
@@ -94,6 +97,7 @@ GET http://127.0.0.1:3001/api/hot?refresh=1
 3. GitHub / Hugging Face 访问不稳定：增加国内入口和降级推荐列表。
 4. 静态页不符合教程结构：迁移为 `client/ + server/`。
 5. Railway 账号 trial expired 阻塞部署：改为 Vercel 前端 + Vercel Express 后端双项目部署。
+6. 妙搭子路径托管资源加载失败：将 Vite `base` 改为 `./`，让 JS/CSS 以相对路径加载。
 
 ## 剩余风险
 

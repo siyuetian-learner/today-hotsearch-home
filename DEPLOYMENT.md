@@ -4,9 +4,11 @@
 
 - 前端：https://today-hotsearch-home.vercel.app
 - 后端 API：https://today-hotsearch-home-server.vercel.app
+- 国内公网入口：https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/
 - GitHub：https://github.com/siyuetian-learner/today-hotsearch-home
 
 Railway 部署时账号提示 `Trial expired`，需要升级套餐才能继续。最终采用 Vercel 双项目部署：一个 Vite 前端项目，一个 Express 后端项目。
+为保证国内用户无需 VPN 也能打开，另通过飞书妙搭发布静态公网入口。该入口设置为互联网公开免登录，页面在实时 API 不可达时自动使用内置离线快照。
 
 ## 部署前检查表
 
@@ -58,6 +60,22 @@ GET https://today-hotsearch-home-server.vercel.app/api/hot
 
 设置环境变量后需要重新部署 Production，前端构建包中才会带上后端地址。
 
+## 飞书妙搭公网入口
+
+- App ID：`app_4ka0f1un2r5re`
+- URL：https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/
+- 发布目录：`client/dist`
+- 访问范围：互联网公开，免登录
+- 构建要求：`client/vite.config.ts` 使用 `base: "./"`，确保资源能在 `/app/app_xxx/` 子路径下正确加载。
+
+发布命令：
+
+```bash
+npm --workspace client run build
+lark-cli apps +html-publish --app-id app_4ka0f1un2r5re --path client/dist
+lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --require-login=false
+```
+
 ## 上线验证
 
 1. 打开 https://today-hotsearch-home.vercel.app。
@@ -68,16 +86,19 @@ GET https://today-hotsearch-home-server.vercel.app/api/hot
 6. 点击 GitHub / Hugging Face 的国内入口和原站。
 7. 确认前端构建包包含 `today-hotsearch-home-server.vercel.app`。
 8. 确认后端 `/api/hot` 返回 6 个平台，每个平台 10 条数据或明确降级提示。
+9. 打开妙搭公网入口，确认无登录拦截、6 张卡片可见、离线快照可用。
 
 ## 线上证据
 
 - `docs/evidence/online-homepage-vercel.png`
 - `docs/evidence/online-ai-filter-vercel.png`
 - `docs/evidence/online-api-summary-vercel.json`
+- `docs/evidence/miaoda-public-homepage.png`
 
 ## 常见问题
 
 - Railway trial expired：可改用 Vercel Express 后端，或升级 Railway 后继续使用 Railway。
 - 前端仍请求自身 `/api`：检查 Vercel 前端项目是否设置 `VITE_API_BASE` 并重新部署。
+- 妙搭入口只显示空白：检查 Vite 构建资源是否为 `./assets/...`，即 `base: "./"` 是否生效。
 - GitHub/Hugging Face 访问慢：使用国内入口或替换镜像环境变量。
 - 知乎接口不可用：页面会标记降级，属于预期容错。

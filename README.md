@@ -4,6 +4,7 @@
 
 线上地址：
 
+- 国内公网入口：https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/
 - 前端：https://today-hotsearch-home.vercel.app
 - 后端 API：https://today-hotsearch-home-server.vercel.app
 
@@ -14,6 +15,7 @@
 - 数据：微博、B站、AI HOT 真实数据；知乎第三方接口优先、不可用时降级；Hugging Face / GitHub 默认使用国内入口与推荐兜底
 - 缓存：每个平台独立内存缓存，默认 600 秒
 - 体验：分类 Tab、搜索、刷新、单卡重试、展开前 10 条、加载态、错误态、空状态、合规页脚
+- 公网入口：飞书妙搭发布的静态入口，接口不可达时自动展示 6 平台离线快照，适合分享给国内用户
 
 ## 项目结构
 
@@ -133,6 +135,8 @@ npm run dev:server
 ## 部署
 
 最终采用 Vercel 双项目部署：前端项目 `today-hotsearch-home`，后端项目 `today-hotsearch-home-server`。Railway 部署尝试时账号提示 `Trial expired`，因此改用 Vercel Express 后端。
+
+为保证国内用户无需 VPN 也能打开页面，另发布飞书妙搭公网入口：`https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/`。该入口使用静态构建产物，实时接口不可达时会自动展示内置离线快照。
 
 详见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
 

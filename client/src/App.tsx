@@ -5,6 +5,7 @@ import { categorySources } from "./components/config";
 import { FocusPanel } from "./components/FocusPanel";
 import { Footer } from "./components/Footer";
 import { HotCard } from "./components/HotCard";
+import { fallbackHotResponse } from "./data/fallbackHot";
 import type { HotPlatform } from "./types/hot";
 
 export function App() {
@@ -49,17 +50,14 @@ export function App() {
         }),
       );
     } catch {
-      setBoards([
-        {
-          source: "local",
-          sourceName: "今日热搜",
-          listName: "加载失败",
-          updatedAt: new Date().toISOString(),
-          error: true,
-          message: "后端接口暂时不可用，请确认 Express 服务已启动。",
-          items: [],
-        },
-      ]);
+      setBoards(fallbackHotResponse.platforms);
+      setTtlSec(fallbackHotResponse.ttlSec);
+      setUpdatedText(
+        new Date().toLocaleTimeString("zh-CN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -67,8 +65,22 @@ export function App() {
   }
 
   async function retrySource(source: string) {
-    const data = await fetchHotPlatform(source, { q: keyword, refresh: true });
-    setBoards((current) => current.map((board) => (board.source === source ? data : board)));
+    try {
+      const data = await fetchHotPlatform(source, { q: keyword, refresh: true });
+      setBoards((current) => current.map((board) => (board.source === source ? data : board)));
+    } catch {
+      setBoards((current) =>
+        current.map((board) =>
+          board.source === source
+            ? {
+                ...board,
+                degraded: true,
+                message: "实时接口暂时不可用，当前继续展示离线快照。",
+              }
+            : board,
+        ),
+      );
+    }
   }
 
   function toggleSource(source: string) {

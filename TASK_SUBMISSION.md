@@ -3,6 +3,7 @@
 ## 线上链接
 
 - 项目首页：https://today-hotsearch-home.vercel.app
+- 国内公网入口：https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/
 - 后端 API：https://today-hotsearch-home-server.vercel.app/api/hot
 - GitHub 仓库：https://github.com/siyuetian-learner/today-hotsearch-home
 
@@ -16,6 +17,7 @@
 - 真实数据源与降级策略
 - 缓存、刷新、搜索、分类、错误态
 - GitHub/Hugging Face 国内入口与原站链接
+- 国内公网入口，接口不可达时自动展示离线快照
 - 21 天打卡文案草稿
 - 测试报告、部署说明、项目总结
 
@@ -30,6 +32,7 @@
 |Day 13-15 真实数据|微博/B站/AI HOT 真实；知乎具备降级；HF/GitHub 具备国内入口|
 |Day 16-18 测试与体验|已完成测试报告和体验优化|
 |Day 19-20 部署|已完成 GitHub + Vercel 前后端部署|
+|公网分享入口|已完成飞书妙搭公开免登录入口|
 |Day 21 总结|已完成 500+ 字项目总结|
 
 ## 验证记录
@@ -57,6 +60,7 @@ GET https://today-hotsearch-home-server.vercel.app/api/hot
 - `docs/evidence/online-homepage-vercel.png`
 - `docs/evidence/online-ai-filter-vercel.png`
 - `docs/evidence/online-api-summary-vercel.json`
+- `docs/evidence/miaoda-public-homepage.png`
 
 ## 需要用户本人完成
 

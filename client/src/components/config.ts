@@ -43,6 +43,7 @@ export function getListName(board: HotPlatform) {
 }
 
 export function getSourceType(board: HotPlatform) {
+  if (board.degraded) return "离线快照";
   return exampleSources.has(board.source) ? "示例数据" : "实时数据";
 }
 
