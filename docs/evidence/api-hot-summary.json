@@ -1,0 +1,101 @@
+{
+  "checkedAt": "2026-06-03T14:01:36.598Z",
+  "status": 200,
+  "ttlSec": 600,
+  "platforms": [
+    {
+      "source": "weibo",
+      "sourceName": "微博热搜",
+      "listName": "全站热搜榜",
+      "items": 10,
+      "error": false,
+      "degraded": false,
+      "firstItem": {
+        "rank": 1,
+        "title": "女子花2万查丈夫出轨揪出辅警内鬼",
+        "heat": "1155846",
+        "url": "https://s.weibo.com/weibo?q=%E5%A5%B3%E5%AD%90%E8%8A%B12%E4%B8%87%E6%9F%A5%E4%B8%88%E5%A4%AB%E5%87%BA%E8%BD%A8%E6%8F%AA%E5%87%BA%E8%BE%85%E8%AD%A6%E5%86%85%E9%AC%BC",
+        "summary": ""
+      }
+    },
+    {
+      "source": "zhihu",
+      "sourceName": "知乎热榜",
+      "listName": "知乎热榜（降级）",
+      "items": 10,
+      "error": false,
+      "degraded": true,
+      "firstItem": {
+        "rank": 1,
+        "title": "如何看待 AI 编程工具进入日常开发",
+        "heat": "356.2万",
+        "url": "https://www.zhihu.com/search?q=%E5%A6%82%E4%BD%95%E7%9C%8B%E5%BE%85%20AI%20%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7%E8%BF%9B%E5%85%A5%E6%97%A5%E5%B8%B8%E5%BC%80%E5%8F%91",
+        "summary": "AI 工具进入真实工作流的讨论持续升温。"
+      }
+    },
+    {
+      "source": "bilibili",
+      "sourceName": "B站热搜",
+      "listName": "站内搜索榜",
+      "items": 10,
+      "error": false,
+      "degraded": false,
+      "firstItem": {
+        "rank": 1,
+        "title": "歌剧老师锐评BLACKPINK",
+        "heat": "6354280",
+        "url": "https://search.bilibili.com/all?keyword=%E6%AD%8C%E5%89%A7%E8%80%81%E5%B8%88%E9%94%90%E8%AF%84BLACKPINK",
+        "summary": "热度层级 B"
+      }
+    },
+    {
+      "source": "huggingface",
+      "sourceName": "Hugging Face",
+      "listName": "Trending Models",
+      "items": 10,
+      "error": false,
+      "degraded": false,
+      "firstItem": {
+        "rank": 1,
+        "title": "nvidia/LocateAnything-3B",
+        "heat": "1084 likes · 78925 downloads",
+        "url": "https://hf-mirror.com/nvidia/LocateAnything-3B",
+        "originalUrl": "https://huggingface.co/nvidia/LocateAnything-3B",
+        "cnUrl": "https://hf-mirror.com/nvidia/LocateAnything-3B",
+        "summary": "image-text-to-text"
+      }
+    },
+    {
+      "source": "aihot",
+      "sourceName": "AI HOT",
+      "listName": "AI 精选动态",
+      "items": 10,
+      "error": false,
+      "degraded": false,
+      "firstItem": {
+        "rank": 1,
+        "title": "Meta 面向 WhatsApp Business 的 AI 智能体现已全球上线",
+        "heat": "分类：ai-products",
+        "url": "https://techcrunch.com/2026/06/03/metas-ai-agent-for-whatsapp-business-is-now-available-globally",
+        "summary": "Meta 为 WhatsApp Business 打造的 AI 智能体面向全球商家开放，将按照模型 token 使用量向企业收费。"
+      }
+    },
+    {
+      "source": "github",
+      "sourceName": "GitHub",
+      "listName": "近 14 天热门仓库",
+      "items": 10,
+      "error": false,
+      "degraded": false,
+      "firstItem": {
+        "rank": 1,
+        "title": "pewdiepie-archdaemon/odysseus",
+        "heat": "39281 stars",
+        "url": "https://kkgithub.com/pewdiepie-archdaemon/odysseus",
+        "originalUrl": "https://github.com/pewdiepie-archdaemon/odysseus",
+        "cnUrl": "https://kkgithub.com/pewdiepie-archdaemon/odysseus",
+        "summary": "Self-hosted AI workspace. "
+      }
+    }
+  ]
+}

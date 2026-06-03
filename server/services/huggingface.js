@@ -1,0 +1,131 @@
+const { fetchJson } = require("./http");
+const { toHuggingFaceLinks } = require("../utils/cn-links");
+
+const fallbackModels = [
+  {
+    id: "Qwen/Qwen3-32B",
+    likes: 7420,
+    downloads: 980000,
+    tags: ["中文友好", "大语言模型", "开源权重"],
+  },
+  {
+    id: "deepseek-ai/DeepSeek-R1",
+    likes: 53000,
+    downloads: 2500000,
+    tags: ["推理模型", "中文友好", "研究"],
+  },
+  {
+    id: "BAAI/bge-m3",
+    likes: 3800,
+    downloads: 1800000,
+    tags: ["向量模型", "中文检索", "embedding"],
+  },
+  {
+    id: "THUDM/glm-4-9b-chat",
+    likes: 2100,
+    downloads: 420000,
+    tags: ["对话模型", "中文", "ChatGLM"],
+  },
+  {
+    id: "internlm/internlm2_5-7b-chat",
+    likes: 1600,
+    downloads: 260000,
+    tags: ["对话模型", "中文", "书生浦语"],
+  },
+  {
+    id: "Qwen/Qwen2.5-VL-7B-Instruct",
+    likes: 6500,
+    downloads: 1100000,
+    tags: ["多模态", "视觉语言模型", "中文友好"],
+  },
+  {
+    id: "moka-ai/m3e-base",
+    likes: 920,
+    downloads: 380000,
+    tags: ["中文向量", "文本检索"],
+  },
+  {
+    id: "BAAI/bge-reranker-v2-m3",
+    likes: 1300,
+    downloads: 760000,
+    tags: ["重排序", "检索增强", "中文"],
+  },
+  {
+    id: "openbmb/MiniCPM-V-2_6",
+    likes: 4200,
+    downloads: 560000,
+    tags: ["端侧模型", "多模态", "中文"],
+  },
+  {
+    id: "Qwen/Qwen2.5-Coder-7B-Instruct",
+    likes: 7900,
+    downloads: 1400000,
+    tags: ["代码模型", "中文注释", "编程"],
+  },
+];
+
+function normalizeRepo(repo, index) {
+  const id = repo.id || repo.name || "unknown/model";
+  const likes = repo.likes ?? repo.likesCount;
+  const downloads = repo.downloads;
+  const trendingScore = repo.trendingScore;
+  const heatParts = [];
+
+  if (typeof trendingScore === "number") {
+    heatParts.push(`趋势 ${trendingScore}`);
+  }
+
+  if (typeof likes === "number") {
+    heatParts.push(`${likes} likes`);
+  }
+
+  if (typeof downloads === "number") {
+    heatParts.push(`${downloads} downloads`);
+  }
+
+  const links = toHuggingFaceLinks(id);
+
+  return {
+    rank: index + 1,
+    title: id,
+    heat: heatParts.slice(0, 2).join(" · ") || "Trending",
+    ...links,
+    summary: [repo.pipeline_tag, repo.library_name, ...(repo.tags || [])]
+      .filter(Boolean)
+      .slice(0, 4)
+      .join(" · "),
+  };
+}
+
+async function fetchHuggingFace({ q = "" } = {}) {
+  let trending = [];
+  let fallback = false;
+
+  try {
+    const data = await fetchJson("https://huggingface.co/api/trending");
+    trending = (data.recentlyTrending || [])
+      .map((entry) => entry.repoData || entry)
+      .filter((repo) => repo && (repo.id || repo.name));
+  } catch (error) {
+    fallback = true;
+    trending = fallbackModels;
+  }
+
+  const filtered = q
+    ? trending.filter((repo) => (repo.id || repo.name || "").toLowerCase().includes(q.toLowerCase()))
+    : trending;
+
+  return {
+    source: "huggingface",
+    sourceName: "Hugging Face",
+    listName: fallback ? "国内可访问模型推荐" : "Trending Models",
+    updatedAt: new Date().toISOString(),
+    items: filtered.slice(0, 10).map(normalizeRepo),
+    degraded: fallback,
+    message: fallback ? "Hugging Face 直连失败，已切换为国内入口推荐列表。" : undefined,
+  };
+}
+
+module.exports = {
+  fetchHuggingFace,
+};

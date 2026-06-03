@@ -1,0 +1,16 @@
+{
+  "name": "today-hotsearch-home",
+  "version": "1.0.0",
+  "private": true,
+  "description": "今日热搜 21 天 Vibe Coding 实战项目",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm --workspace client run dev",
+    "dev:server": "npm --workspace server run dev",
+    "build": "npm --workspace client run build",
+    "start": "npm --workspace server run start"
+  }
+}
