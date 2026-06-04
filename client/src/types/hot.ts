@@ -6,6 +6,9 @@ export type HotItem = {
   summary?: string;
   originalUrl?: string;
   cnUrl?: string;
+  sourceType?: string;
+  trend?: "new" | "up" | "down" | "steady";
+  why?: string;
 };
 
 export type HotPlatform = {
@@ -17,9 +20,32 @@ export type HotPlatform = {
   error?: boolean;
   message?: string;
   degraded?: boolean;
+  dataState?: "live" | "cached" | "stale" | "offline" | "error";
+  fetchDurationMs?: number;
+};
+
+export type SourceStatus = {
+  source: string;
+  status: "idle" | "success" | "cached" | "degraded" | "failed" | string;
+  message?: string;
+  itemCount?: number;
+  updatedAt?: string;
+  durationMs?: number;
 };
 
 export type HotResponse = {
   platforms: HotPlatform[];
   ttlSec: number;
+  statuses?: SourceStatus[];
+};
+
+export type ArchiveSnapshot = {
+  date: string;
+  platform: HotPlatform;
+};
+
+export type ArchiveResponse = {
+  dates: string[];
+  snapshots: ArchiveSnapshot[];
+  count: number;
 };

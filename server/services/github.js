@@ -109,8 +109,14 @@ async function fetchGithub({ q = "" } = {}) {
       heat: `${repo.stargazers_count} stars`,
       ...toGithubLinks(repo.full_name),
       summary: repo.description || repo.language || "",
+      sourceType: "开源社区",
+      trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
+      why: fallback
+        ? "GitHub 实时搜索不可用时保留的国内可访问开源项目推荐。"
+        : "近 14 天创建且星标增长较快，适合发现近期新项目。",
     })),
     degraded: fallback,
+    dataState: fallback ? "offline" : "live",
     message: fallback ? "GitHub 直连失败，已切换为国内入口推荐列表。" : undefined,
   };
 }

@@ -1,4 +1,4 @@
-import type { HotPlatform, HotResponse } from "../types/hot";
+import type { ArchiveResponse, HotPlatform, HotResponse, SourceStatus } from "../types/hot";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
@@ -33,4 +33,19 @@ export function fetchAllHot(options: { q?: string; refresh?: boolean } = {}) {
 
 export function fetchHotPlatform(source: string, options: { q?: string; refresh?: boolean } = {}) {
   return fetchJson<HotPlatform>(`/api/hot/${source}${buildQuery(options)}`);
+}
+
+export function fetchArchive(options: { source?: string; date?: string; range?: string } = {}) {
+  const params = new URLSearchParams();
+
+  if (options.source) params.set("source", options.source);
+  if (options.date) params.set("date", options.date);
+  if (options.range) params.set("range", options.range);
+
+  const query = params.toString();
+  return fetchJson<ArchiveResponse>(`/api/archive${query ? `?${query}` : ""}`);
+}
+
+export function fetchSourceStatuses() {
+  return fetchJson<{ ttlSec: number; statuses: SourceStatus[] }>("/api/status");
 }

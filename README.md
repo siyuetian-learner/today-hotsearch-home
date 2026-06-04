@@ -12,10 +12,11 @@
 
 - 前端：React + TypeScript + Vite + CSS
 - 后端：Node.js + Express
-- 数据：微博、B站、AI HOT 真实数据；知乎第三方接口优先、不可用时降级；Hugging Face / GitHub 默认使用国内入口与推荐兜底
-- 缓存：每个平台独立内存缓存，默认 600 秒
-- 体验：分类 Tab、搜索、刷新、单卡重试、展开前 10 条、加载态、错误态、空状态、合规页脚
-- 公网入口：飞书妙搭发布的静态入口，接口不可达时自动展示 6 平台离线快照，适合分享给国内用户
+- 数据：微博、百度、知乎、B站、抖音、今日头条、36氪、IT之家、AI HOT、Hugging Face、GitHub、Hacker News 共 12 个来源
+- 缓存与归档：每个平台独立缓存，默认 600 秒；保存最近 7 天轻量快照，并提供数据状态
+- 体验：分类 Tab、搜索、刷新、单卡重试、展开 Top 10、速读模式、热点详情抽屉、我的首页平台隐藏、数据状态条
+- 视觉：参考乔布斯时代 Mac OS X Aqua / brushed metal 风格，保留高信息密度与移动端单列布局
+- 公网入口：飞书妙搭发布的静态入口，接口不可达时自动展示 12 平台离线快照，适合分享给国内用户
 
 ## 项目结构
 
@@ -89,6 +90,10 @@ GET /api/hot?q=AI
 GET /api/hot?refresh=1
 GET /api/hot/:source
 GET /api/hot/:source?q=OpenAI&refresh=1
+GET /api/archive?range=today
+GET /api/archive?range=yesterday
+GET /api/archive?range=7d
+GET /api/status
 ```
 
 ## 环境变量
@@ -110,15 +115,19 @@ GET /api/hot/:source?q=OpenAI&refresh=1
 |HUGGINGFACE_CN_BASE|https://hf-mirror.com|Hugging Face 国内入口|
 |GITHUB_CN_BASE|https://kkgithub.com|GitHub 国内入口|
 |ZHIHU_HOT_API|https://api-hot.imsyy.top/zhihu|知乎第三方热榜接口|
+|DAILY_HOT_API_BASE|https://api-hot.imsyy.top|百度、抖音、头条、36氪、IT之家等聚合源基础地址|
+|ARCHIVE_DAYS|7|本地快照保留天数|
 
 ## 数据来源说明
 
 - 微博：`https://weibo.com/ajax/side/hotSearch`
 - B站：`https://s.search.bilibili.com/main/hotword?limit=20`
 - 知乎：第三方聚合 API 优先；接口不可用时显示降级数据并标记提示
+- 百度、抖音、今日头条、36氪、IT之家：DailyHotApi 风格公开聚合接口优先；接口不可用时显示内置离线快照
 - AI HOT：`https://aihot.virxact.com/api/public/items`
 - Hugging Face：公开趋势接口优先；访问不稳定时切换国内入口推荐列表
 - GitHub：Search API 优先；访问不稳定时切换国内入口推荐列表
+- Hacker News：官方 Firebase API `https://hacker-news.firebaseio.com/v0/topstories.json`
 
 ## 国内访问说明
 

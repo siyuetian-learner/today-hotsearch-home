@@ -23,6 +23,26 @@ async function fetchJson(url, options = {}) {
   }
 }
 
+async function fetchJsonWithRetry(url, options = {}) {
+  const retries = Number(options.retries ?? 1);
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchJson(url, options);
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 module.exports = {
   fetchJson,
+  fetchJsonWithRetry,
 };

@@ -94,6 +94,9 @@ function normalizeRepo(repo, index) {
       .filter(Boolean)
       .slice(0, 4)
       .join(" · "),
+    sourceType: "AI 模型社区",
+    trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
+    why: "近期点赞、下载或趋势分数较高，适合观察模型能力与任务方向。",
   };
 }
 
@@ -122,6 +125,7 @@ async function fetchHuggingFace({ q = "" } = {}) {
     updatedAt: new Date().toISOString(),
     items: filtered.slice(0, 10).map(normalizeRepo),
     degraded: fallback,
+    dataState: fallback ? "offline" : "live",
     message: fallback ? "Hugging Face 直连失败，已切换为国内入口推荐列表。" : undefined,
   };
 }
