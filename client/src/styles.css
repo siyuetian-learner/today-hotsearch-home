@@ -147,6 +147,8 @@ h1 {
   margin-top: 4px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .toolbar-actions,

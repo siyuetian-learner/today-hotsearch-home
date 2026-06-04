@@ -238,7 +238,7 @@ export function App() {
         <section className="board-toolbar" aria-label="榜单摘要">
           <div>
             <strong>全网实时榜</strong>
-            <span>12 个数据源 · 支持详情解读、速读模式、历史快照与国内入口</span>
+            <span>12 个数据源 · 详情解读 · 速读 · 历史快照 · 国内入口</span>
           </div>
           <div className="toolbar-actions">
             <label className="search-box">
