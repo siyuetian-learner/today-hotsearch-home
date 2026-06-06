@@ -110,13 +110,15 @@ GET /api/status
 |---|---:|---|
 |PORT|3001|后端端口|
 |CACHE_TTL|600|缓存秒数|
-|CLIENT_ORIGIN|true|CORS 来源，生产填 Vercel 域名|
+|REFRESH_COOLDOWN_SEC|60|`?refresh=1` 强制刷新冷却秒数，避免公开接口被频繁刷新|
+|CLIENT_ORIGIN|内置本地、Vercel、妙搭域名|CORS 白名单，生产可用逗号追加前端域名|
 |USE_CN_LINKS|1|默认使用国内入口链接|
 |HUGGINGFACE_CN_BASE|https://hf-mirror.com|Hugging Face 国内入口|
 |GITHUB_CN_BASE|https://kkgithub.com|GitHub 国内入口|
 |ZHIHU_HOT_API|https://api-hot.imsyy.top/zhihu|知乎第三方热榜接口|
 |DAILY_HOT_API_BASE|https://api-hot.imsyy.top|百度、抖音、头条、36氪、IT之家等聚合源基础地址|
 |ARCHIVE_DAYS|7|本地快照保留天数|
+|ARCHIVE_TIMEZONE_OFFSET|8|归档日期按中国时区偏移计算|
 
 ## 数据来源说明
 
@@ -140,6 +142,10 @@ set HUGGINGFACE_CN_BASE=https://你的可用镜像域名
 set GITHUB_CN_BASE=https://你的可用镜像域名
 npm run dev:server
 ```
+
+## 归档说明
+
+当前归档是后端本地轻量 JSON 快照。普通 Node 服务器可以持久保留最近 7 天；Vercel Serverless 文件系统不保证持久写入，因此线上会在 `/api/archive` 和页面状态条中标记「临时归档」。如果后续要做真正的历史趋势，应迁移到 Redis、Upstash KV、Vercel KV 或数据库。
 
 ## 部署
 

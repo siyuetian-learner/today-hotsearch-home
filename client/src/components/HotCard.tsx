@@ -9,6 +9,7 @@ import {
   getStateTone,
   getTrendText,
   platformColors,
+  safeHref,
 } from "./config";
 
 type Props = {
@@ -50,6 +51,8 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
         <ol className="hot-list">
           {visibleItems.map((item, index) => {
             const metric = getMetricText(board, item);
+            const itemHref = safeHref(item.url || item.cnUrl);
+            const originalHref = safeHref(item.originalUrl);
             return (
               <li className={`hot-item ${item.summary ? "has-summary" : ""}`} key={`${board.source}-${item.rank}-${item.title}`}>
                 <span className="rank">{item.rank || index + 1}</span>
@@ -65,10 +68,10 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
                   {item.originalUrl && item.originalUrl !== item.url ? (
                     <span className="access-links">
                       <span>访问</span>
-                      <a href={item.url || item.cnUrl || "#"} rel="noreferrer" target="_blank">
+                      <a href={itemHref} rel="noreferrer" target="_blank">
                         国内入口
                       </a>
-                      <a href={item.originalUrl} rel="noreferrer" target="_blank">
+                      <a href={originalHref} rel="noreferrer" target="_blank">
                         原站
                       </a>
                     </span>

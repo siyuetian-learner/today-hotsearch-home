@@ -91,9 +91,22 @@ export function getStateTone(board: HotPlatform) {
 
 export function getTrendText(item: HotItem) {
   if (item.trend === "new") return "新上榜";
-  if (item.trend === "up") return "上升";
-  if (item.trend === "down") return "回落";
-  return "持续";
+  if (item.trend === "up") return "重点";
+  if (item.trend === "down") return "观察";
+  return "热榜";
+}
+
+export function safeHref(value?: string) {
+  const href = String(value || "").trim();
+
+  if (!href || href === "#") return "#";
+
+  try {
+    const url = new URL(href);
+    return ["http:", "https:"].includes(url.protocol) ? href : "#";
+  } catch {
+    return "#";
+  }
 }
 
 export function formatHeat(value: HotItem["heat"]) {

@@ -297,6 +297,12 @@ h1 {
   padding-left: 0;
 }
 
+.data-strip .strip-warning {
+  border-color: #d28b2d;
+  background: rgba(255, 245, 214, 0.72);
+  color: #87510f;
+}
+
 .home-settings {
   margin-bottom: 18px;
   padding: 10px 12px;

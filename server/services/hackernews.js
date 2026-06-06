@@ -48,16 +48,21 @@ async function fetchHackerNews({ q = "" } = {}) {
   let message;
 
   try {
-    const ids = await fetchJsonWithRetry(`${apiBase}/topstories.json`, { timeoutMs: 10000, retries: 1 });
-    const storyIds = Array.isArray(ids) ? ids.slice(0, 24) : [];
+    const ids = await fetchJsonWithRetry(`${apiBase}/topstories.json`, { timeoutMs: 6000, retries: 1 });
+    const storyIds = Array.isArray(ids) ? ids.slice(0, 12) : [];
     const details = await Promise.allSettled(
-      storyIds.map((id) => fetchJsonWithRetry(`${apiBase}/item/${id}.json`, { timeoutMs: 8000, retries: 0 })),
+      storyIds.map((id) => fetchJsonWithRetry(`${apiBase}/item/${id}.json`, { timeoutMs: 4500, retries: 0 })),
     );
 
     stories = details
       .filter((result) => result.status === "fulfilled")
       .map((result) => result.value)
       .filter((item) => item && item.type === "story" && item.title);
+
+    if (!stories.length) {
+      degraded = true;
+      message = "Hacker News 返回为空，已切换为内置离线快照。";
+    }
   } catch (error) {
     degraded = true;
     message = "Hacker News 官方 API 暂不可用，已切换为内置离线快照。";

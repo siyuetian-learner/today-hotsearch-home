@@ -48,4 +48,6 @@ export type ArchiveResponse = {
   dates: string[];
   snapshots: ArchiveSnapshot[];
   count: number;
+  persistent?: boolean;
+  message?: string;
 };

@@ -1,6 +1,6 @@
 import type { HotPlatform } from "../types/hot";
 
-const updatedAt = "2026-06-03T14:48:00.000Z";
+const updatedAt = new Date().toISOString();
 
 function item(rank: number, title: string, heat: string, summary = "", url = "#") {
   return { rank, title, heat, summary, url };

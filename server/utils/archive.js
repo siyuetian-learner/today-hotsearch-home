@@ -4,9 +4,14 @@ const path = require("path");
 const archiveDir = path.resolve(__dirname, "..", "data");
 const archiveFile = path.resolve(archiveDir, "archive.json");
 const maxDays = Number(process.env.ARCHIVE_DAYS || 7);
+const timezoneOffsetHours = Number(process.env.ARCHIVE_TIMEZONE_OFFSET || 8);
 
 let archive = readArchive();
 const statuses = new Map();
+let archivePersistent = process.env.VERCEL !== "1";
+let archiveMessage = archivePersistent
+  ? "当前运行环境支持本地轻量快照。"
+  : "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
 
 function readArchive() {
   try {
@@ -24,13 +29,20 @@ function persistArchive() {
   try {
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2), "utf8");
+    archivePersistent = process.env.VERCEL !== "1";
+    archiveMessage = archivePersistent
+      ? "当前运行环境支持本地轻量快照。"
+      : "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
   } catch {
-    // Serverless environments can be read-only. In-memory snapshots still work.
+    archivePersistent = false;
+    archiveMessage = "当前运行环境无法写入归档文件，历史快照仅作本实例内临时参考。";
   }
 }
 
 function toDateKey(value = new Date()) {
-  return new Date(value).toISOString().slice(0, 10);
+  const date = new Date(value);
+  date.setHours(date.getHours() + timezoneOffsetHours);
+  return date.toISOString().slice(0, 10);
 }
 
 function previousDateKey(daysAgo) {
@@ -136,6 +148,8 @@ function getArchive({ source = "", date = "", range = "today" } = {}) {
     dates,
     snapshots,
     count: snapshots.length,
+    persistent: archivePersistent,
+    message: archiveMessage,
   };
 }
 

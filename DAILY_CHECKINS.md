@@ -42,7 +42,7 @@
 
 ## Day 11
 
-今天完成了多平台 API 聚合，`GET /api/hot` 可以一次返回 6 个平台。首页数据已经 100% 由后端驱动，不再直接依赖前端 Mock 文件。这个阶段最重要的是统一数据模型：无论是微博、B站、AI HOT 还是 GitHub，最终都转换成 rank、title、heat、url、summary 等字段。
+今天完成了多平台 API 聚合，`GET /api/hot` 可以一次返回 12 个平台。首页数据已经 100% 由后端驱动，不再直接依赖前端 Mock 文件。这个阶段最重要的是统一数据模型：无论是微博、百度、知乎、B站、AI HOT、Hugging Face、GitHub 还是 Hacker News，最终都转换成 rank、title、heat、url、summary 等字段。
 
 ## Day 12
 
@@ -74,11 +74,11 @@
 
 ## Day 19
 
-今天整理了部署前准备材料，包括 `DEPLOYMENT.md`、环境变量清单、构建命令和检查表。原计划是前端部署到 Vercel、后端部署到 Railway；实际操作时 Railway 账号提示 trial expired，因此改用 Vercel 双项目部署：一个前端项目，一个 Express 后端项目。部署前要确认 `client` 能构建、`server` 能启动、`/api/health` 正常、`/api/hot` 能返回 6 个榜单。这个阶段重点是把本地能跑的项目变成别人也能访问的项目。
+今天整理了部署前准备材料，包括 `DEPLOYMENT.md`、环境变量清单、构建命令和检查表。原计划是前端部署到 Vercel、后端部署到 Railway；实际操作时 Railway 账号提示 trial expired，因此改用 Vercel 双项目部署：一个前端项目，一个 Express 后端项目。部署前要确认 `client` 能构建、`server` 能启动、`/api/health` 正常、`/api/hot` 能返回 12 个榜单。这个阶段重点是把本地能跑的项目变成别人也能访问的项目。
 
 ## Day 20
 
-今天完成公网部署流程。代码已推送到 GitHub 新仓库 `today-hotsearch-home`，前端部署到 Vercel：`https://today-hotsearch-home.vercel.app`，后端 Express API 部署到 Vercel：`https://today-hotsearch-home-server.vercel.app`。前端通过 `VITE_API_BASE` 连接后端，线上验证 `/api/hot` 能返回 6 个平台。部署过程中最容易踩坑的是环境变量没生效、自动识别的根目录不符合项目结构，以及后端启动目录选错。
+今天完成公网部署流程。代码已推送到 GitHub 新仓库 `today-hotsearch-home`，前端部署到 Vercel：`https://today-hotsearch-home.vercel.app`，后端 Express API 部署到 Vercel：`https://today-hotsearch-home-server.vercel.app`。前端通过 `VITE_API_BASE` 连接后端，线上验证 `/api/hot` 能返回 12 个平台。部署过程中最容易踩坑的是环境变量没生效、自动识别的根目录不符合项目结构，以及后端启动目录选错。
 
 ## Day 21
 

@@ -7,6 +7,7 @@ import {
   getMetricText,
   getSourceName,
   getSourceType,
+  safeHref,
   sourceLabels,
   sourceOrder,
 } from "./components/config";
@@ -36,10 +37,49 @@ function readStoredSet(key: string) {
   }
 }
 
+function normalizeTitle(value: string) {
+  return value.toLowerCase().replace(/[^\p{Script=Han}a-z0-9]+/gu, "");
+}
+
+function titleBigrams(value: string) {
+  const chars = Array.from(normalizeTitle(value));
+  const grams = new Set<string>();
+
+  for (let index = 0; index < chars.length - 1; index += 1) {
+    grams.add(`${chars[index]}${chars[index + 1]}`);
+  }
+
+  return grams;
+}
+
 function sameText(a: string, b: string) {
-  const left = a.toLowerCase();
-  const right = b.toLowerCase();
-  return left.includes(right.slice(0, 5)) || right.includes(left.slice(0, 5));
+  const left = normalizeTitle(a);
+  const right = normalizeTitle(b);
+
+  if (left.length < 4 || right.length < 4) return false;
+  if ((left.includes(right) || right.includes(left)) && Math.min(left.length, right.length) >= 6) return true;
+
+  const leftGrams = titleBigrams(left);
+  const rightGrams = titleBigrams(right);
+
+  if (!leftGrams.size || !rightGrams.size) return false;
+
+  let hits = 0;
+  for (const gram of leftGrams) {
+    if (rightGrams.has(gram)) hits += 1;
+  }
+
+  return hits >= 3 && hits / Math.min(leftGrams.size, rightGrams.size) >= 0.38;
+}
+
+function upsertStatus(statuses: SourceStatus[], next: SourceStatus) {
+  const found = statuses.some((status) => status.source === next.source);
+
+  if (!found) {
+    return [...statuses, next];
+  }
+
+  return statuses.map((status) => (status.source === next.source ? { ...status, ...next } : status));
 }
 
 function findRelated(selected: SelectedHot, boards: HotPlatform[]) {
@@ -65,13 +105,17 @@ export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => (readStoredString("hotsearch.view", "cards") === "reader" ? "reader" : "cards"));
   const [archiveRange, setArchiveRange] = useState<ArchiveRange>("today");
   const [archiveCount, setArchiveCount] = useState(0);
+  const [archiveMessage, setArchiveMessage] = useState("");
+  const [archivePersistent, setArchivePersistent] = useState<boolean | undefined>(undefined);
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(() => readStoredSet("hotsearch.hiddenSources"));
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [selectedHot, setSelectedHot] = useState<SelectedHot>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedText, setUpdatedText] = useState("");
+  const drawerRef = useRef<HTMLElement | null>(null);
   const searchTimer = useRef<number | undefined>(undefined);
+  const requestSeq = useRef(0);
 
   const orderedBoards = useMemo(() => {
     return [...boards].sort((a, b) => sourceOrder.indexOf(a.source) - sourceOrder.indexOf(b.source));
@@ -107,11 +151,15 @@ export function App() {
     return { live, cached, degraded, failed };
   }, [statuses, visibleBoards]);
 
+  const detailTitleId = selectedHot ? `detail-title-${selectedHot.board.source}-${selectedHot.item.rank}` : undefined;
+
   async function loadBoards(options: { refresh?: boolean; q?: string } = {}) {
+    const requestId = (requestSeq.current += 1);
     setLoading(true);
     setRefreshing(Boolean(options.refresh));
     try {
       const data = await fetchAllHot({ q: options.q ?? keyword, refresh: options.refresh });
+      if (requestSeq.current !== requestId) return;
       setBoards(data.platforms || []);
       setStatuses(data.statuses || []);
       setTtlSec(data.ttlSec || ttlSec);
@@ -122,6 +170,7 @@ export function App() {
         }),
       );
     } catch {
+      if (requestSeq.current !== requestId) return;
       setBoards(fallbackHotResponse.platforms);
       setStatuses([]);
       setTtlSec(fallbackHotResponse.ttlSec);
@@ -132,8 +181,10 @@ export function App() {
         }),
       );
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestSeq.current === requestId) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }
 
@@ -141,15 +192,39 @@ export function App() {
     try {
       const archive = await fetchArchive({ range });
       setArchiveCount(archive.count || 0);
+      setArchiveMessage(archive.message || "");
+      setArchivePersistent(archive.persistent);
     } catch {
       setArchiveCount(0);
+      setArchiveMessage("归档状态暂时无法读取。");
+      setArchivePersistent(false);
     }
   }
 
   async function retrySource(source: string) {
+    const startedAt = Date.now();
+    setStatuses((current) =>
+      upsertStatus(current, {
+        source,
+        status: "loading",
+        message: "正在重新抓取",
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+
     try {
       const data = await fetchHotPlatform(source, { q: keyword, refresh: true });
       setBoards((current) => current.map((board) => (board.source === source ? data : board)));
+      setStatuses((current) =>
+        upsertStatus(current, {
+          source,
+          status: data.degraded ? "degraded" : data.dataState === "cached" ? "cached" : "success",
+          message: data.message || "",
+          itemCount: data.items?.length || 0,
+          updatedAt: data.updatedAt || new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        }),
+      );
     } catch {
       setBoards((current) =>
         current.map((board) =>
@@ -162,6 +237,16 @@ export function App() {
               }
             : board,
         ),
+      );
+      setStatuses((current) =>
+        upsertStatus(current, {
+          source,
+          status: "failed",
+          message: "实时接口暂时不可用，当前继续展示已有快照。",
+          itemCount: 0,
+          updatedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        }),
       );
     }
   }
@@ -219,6 +304,20 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("hotsearch.hiddenSources", JSON.stringify(Array.from(hiddenSources)));
   }, [hiddenSources]);
+
+  useEffect(() => {
+    if (!selectedHot) return undefined;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSelectedHot(null);
+      }
+    }
+
+    window.setTimeout(() => drawerRef.current?.focus(), 0);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedHot]);
 
   return (
     <>
@@ -288,6 +387,11 @@ export function App() {
           <span>降级 {dataSummary.degraded}</span>
           <span>失败 {dataSummary.failed}</span>
           <span>归档快照 {archiveCount}</span>
+          {archiveMessage ? (
+            <span className={archivePersistent === false ? "strip-warning" : ""} title={archiveMessage}>
+              {archivePersistent === false ? "临时归档" : "归档可用"}
+            </span>
+          ) : null}
         </section>
 
         <details className="home-settings">
@@ -345,14 +449,22 @@ export function App() {
 
       {selectedHot ? (
         <div className="detail-backdrop" role="presentation" onClick={() => setSelectedHot(null)}>
-          <aside className="detail-drawer" aria-label="热点详情" role="dialog" onClick={(event) => event.stopPropagation()}>
-            <button className="drawer-close" type="button" onClick={() => setSelectedHot(null)}>
+          <aside
+            aria-labelledby={detailTitleId}
+            aria-modal="true"
+            className="detail-drawer"
+            ref={drawerRef}
+            role="dialog"
+            tabIndex={-1}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button aria-label="关闭热点详情" className="drawer-close" type="button" onClick={() => setSelectedHot(null)}>
               关闭
             </button>
             <span className="detail-kicker">
               {getSourceName(selectedHot.board)} · 第 {selectedHot.item.rank} 名 · {getSourceType(selectedHot.board)}
             </span>
-            <h2>{selectedHot.item.title}</h2>
+            <h2 id={detailTitleId}>{selectedHot.item.title}</h2>
             <div className="detail-metrics">
               <span>{getMetricText(selectedHot.board, selectedHot.item) || "热度更新中"}</span>
               <span>{formatRelativeTime(selectedHot.board.updatedAt)}</span>
@@ -380,16 +492,16 @@ export function App() {
               </section>
             ) : null}
             <div className="detail-links">
-              <a href={selectedHot.item.url || "#"} rel="noreferrer" target="_blank">
+              <a href={safeHref(selectedHot.item.url)} rel="noreferrer" target="_blank">
                 打开链接
               </a>
               {selectedHot.item.cnUrl ? (
-                <a href={selectedHot.item.cnUrl} rel="noreferrer" target="_blank">
+                <a href={safeHref(selectedHot.item.cnUrl)} rel="noreferrer" target="_blank">
                   国内入口
                 </a>
               ) : null}
               {selectedHot.item.originalUrl ? (
-                <a href={selectedHot.item.originalUrl} rel="noreferrer" target="_blank">
+                <a href={safeHref(selectedHot.item.originalUrl)} rel="noreferrer" target="_blank">
                   原站
                 </a>
               ) : null}

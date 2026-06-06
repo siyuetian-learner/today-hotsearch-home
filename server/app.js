@@ -21,6 +21,7 @@ const {
 
 const app = express();
 const ttlSec = Number(process.env.CACHE_TTL || 600);
+const refreshCooldownSec = Number(process.env.REFRESH_COOLDOWN_SEC || 60);
 const clientDist = path.resolve(__dirname, "..", "client", "dist");
 const clientIndex = path.resolve(clientDist, "index.html");
 
@@ -40,10 +41,54 @@ const sources = {
 };
 
 const sourceOrder = Object.keys(sources);
+const refreshLocks = new Map();
+
+const defaultOrigins = [
+  "http://127.0.0.1:5173",
+  "http://localhost:5173",
+  "https://today-hotsearch-home.vercel.app",
+  "https://ncn2j3n91nay.aiforce.cloud",
+];
+
+function parseOrigins(value = "") {
+  return String(value)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+const allowedOrigins = new Set([...defaultOrigins, ...parseOrigins(process.env.CLIENT_ORIGIN)]);
+
+function getRequester(req) {
+  return String(req.headers["x-forwarded-for"] || req.ip || "unknown").split(",")[0].trim();
+}
+
+function shouldRefresh(req, scope) {
+  if (req.query.refresh !== "1") return false;
+
+  const key = `${getRequester(req)}:${scope}`;
+  const now = Date.now();
+  const last = refreshLocks.get(key) || 0;
+
+  if (now - last < refreshCooldownSec * 1000) {
+    req.refreshLimited = true;
+    return false;
+  }
+
+  refreshLocks.set(key, now);
+  return true;
+}
 
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || true,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
   }),
 );
 
@@ -53,6 +98,7 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     ttlSec,
+    refreshCooldownSec,
     sourceCount: sourceOrder.length,
     docs: ["/api/hot", "/api/hot/:source", "/api/archive", "/api/status"],
   });
@@ -138,8 +184,11 @@ async function safeLoadSource(source, options) {
 }
 
 app.get("/api/hot", async (req, res) => {
-  const refresh = req.query.refresh === "1";
+  const refresh = shouldRefresh(req, "all");
   const q = String(req.query.q || "").trim();
+  if (req.refreshLimited) {
+    res.set("x-refresh-limited", String(refreshCooldownSec));
+  }
   const platforms = await Promise.all(
     sourceOrder.map((source) => safeLoadSource(source, { refresh, q })),
   );
@@ -149,8 +198,11 @@ app.get("/api/hot", async (req, res) => {
 
 app.get("/api/hot/:source", async (req, res) => {
   const source = req.params.source;
-  const refresh = req.query.refresh === "1";
+  const refresh = shouldRefresh(req, source);
   const q = String(req.query.q || "").trim();
+  if (req.refreshLimited) {
+    res.set("x-refresh-limited", String(refreshCooldownSec));
+  }
 
   try {
     const platform = await loadSource(source, { refresh, q });
