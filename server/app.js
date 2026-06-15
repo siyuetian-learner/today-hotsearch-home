@@ -11,6 +11,7 @@ const { fetchHackerNews } = require("./services/hackernews");
 const { fetchWeiboHot } = require("./services/weibo");
 const { fetchZhihuHot } = require("./services/zhihu");
 const { createDailyHotFetcher } = require("./services/dailyhot");
+const { attachSourceStrategy, listSourceStrategies } = require("./services/source-strategies");
 const {
   getArchive,
   getLatestSnapshot,
@@ -100,7 +101,7 @@ app.get("/api/health", (_req, res) => {
     ttlSec,
     refreshCooldownSec,
     sourceCount: sourceOrder.length,
-    docs: ["/api/hot", "/api/hot/:source", "/api/archive", "/api/status"],
+    docs: ["/api/hot", "/api/hot/:source", "/api/archive", "/api/status", "/api/sources"],
   });
 });
 
@@ -134,17 +135,17 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
         durationMs: 0,
       });
 
-      return cachedPlatform;
+      return attachSourceStrategy(source, cachedPlatform);
     }
   }
 
   console.log(`[fetch] ${cacheKey}`);
   const data = await handler({ q });
-  const platform = {
+  const platform = attachSourceStrategy(source, {
     ...data,
     dataState: data.dataState || (data.degraded ? "offline" : "live"),
     fetchDurationMs: Date.now() - startedAt,
-  };
+  });
   setCache(cacheKey, platform, ttlSec);
   recordSnapshot(platform, {
     durationMs: platform.fetchDurationMs,
@@ -167,10 +168,10 @@ async function safeLoadSource(source, options) {
     const snapshot = getLatestSnapshot(source);
 
     if (snapshot) {
-      return snapshot;
+      return attachSourceStrategy(source, snapshot);
     }
 
-    return {
+    return attachSourceStrategy(source, {
       source,
       sourceName: source,
       listName: "加载失败",
@@ -179,7 +180,7 @@ async function safeLoadSource(source, options) {
       error: true,
       dataState: "error",
       message: `暂时无法获取 ${source} 数据，请稍后重试。`,
-    };
+    });
   }
 }
 
@@ -212,12 +213,12 @@ app.get("/api/hot/:source", async (req, res) => {
       const snapshot = getLatestSnapshot(source);
 
       if (snapshot) {
-        res.json(snapshot);
+        res.json(attachSourceStrategy(source, snapshot));
         return;
       }
     }
 
-    res.status(error.status || 500).json({
+    res.status(error.status || 500).json(attachSourceStrategy(source, {
       source,
       sourceName: source,
       listName: "加载失败",
@@ -226,7 +227,7 @@ app.get("/api/hot/:source", async (req, res) => {
       error: true,
       dataState: "error",
       message: error.status === 404 ? "未知平台" : "平台数据获取失败",
-    });
+    }));
   }
 });
 
@@ -244,6 +245,13 @@ app.get("/api/status", (_req, res) => {
   });
 });
 
+app.get("/api/sources", (_req, res) => {
+  res.json({
+    sourceCount: sourceOrder.length,
+    sources: listSourceStrategies(sourceOrder),
+  });
+});
+
 app.get("/", (_req, res) => {
   if (fs.existsSync(clientIndex)) {
     res.sendFile(clientIndex);
@@ -253,7 +261,7 @@ app.get("/", (_req, res) => {
   res.json({
     ok: true,
     service: "today-hotsearch-api",
-    docs: ["/api/health", "/api/hot", "/api/hot/:source", "/api/archive", "/api/status"],
+    docs: ["/api/health", "/api/hot", "/api/hot/:source", "/api/archive", "/api/status", "/api/sources"],
   });
 });
 

@@ -47,6 +47,7 @@ git push -u origin main
   - `HUGGINGFACE_CN_BASE=https://hf-mirror.com`
   - `GITHUB_CN_BASE=https://kkgithub.com`
   - `ZHIHU_HOT_API=https://api-hot.imsyy.top/zhihu`
+  - `ZHIHU_HOT_PAGE=https://www.zhihu.com/billboard`
   - `DAILY_HOT_API_BASE=https://api-hot.imsyy.top`
   - `ARCHIVE_DAYS=7`
   - `ARCHIVE_TIMEZONE_OFFSET=8`
@@ -56,6 +57,7 @@ git push -u origin main
 ```text
 GET https://today-hotsearch-home-server.vercel.app/api/health
 GET https://today-hotsearch-home-server.vercel.app/api/hot
+GET https://today-hotsearch-home-server.vercel.app/api/sources
 ```
 
 ## Vercel 前端
@@ -95,7 +97,8 @@ lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --requ
 8. 确认后端 `/api/hot` 返回 12 个平台，每个平台 10 条数据或明确降级提示。
 9. 连续请求 `/api/hot?refresh=1`，第二次在冷却期内返回缓存并带 `x-refresh-limited` 响应头。
 10. 打开 `/api/archive?range=today`，确认 Serverless 环境会返回 `persistent: false` 或明确临时归档提示。
-11. 打开妙搭公网入口，确认无登录拦截、12 张卡片可见、离线快照可用。
+11. 打开 `/api/sources`，确认无公开 API 平台包含第三方源、公开页面、历史快照和离线数据兜底策略。
+12. 打开妙搭公网入口，确认无登录拦截、12 张卡片可见、离线快照可用。
 
 ## 线上证据
 
@@ -111,4 +114,5 @@ lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --requ
 - 妙搭入口只显示空白：检查 Vite 构建资源是否为 `./assets/...`，即 `base: "./"` 是否生效。
 - GitHub/Hugging Face 访问慢：使用国内入口或替换镜像环境变量。
 - 知乎接口不可用：页面会标记降级，属于预期容错。
+- 无公开 API 平台不稳定：检查 `/api/sources` 中的兜底策略，必要时替换第三方聚合源或公开页面地址。
 - 归档数量不稳定：Vercel Serverless 不提供持久文件系统，当前归档只作为临时快照；需要长期历史时应接入 KV 或数据库。

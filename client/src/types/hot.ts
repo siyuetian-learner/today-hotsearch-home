@@ -11,6 +11,15 @@ export type HotItem = {
   why?: string;
 };
 
+export type SourceStrategy = {
+  active: string;
+  primary: string;
+  fallbacks: string[];
+  domesticAccess: string;
+  noPublicApi?: boolean;
+  note?: string;
+};
+
 export type HotPlatform = {
   source: string;
   sourceName: string;
@@ -22,6 +31,8 @@ export type HotPlatform = {
   degraded?: boolean;
   dataState?: "live" | "cached" | "stale" | "offline" | "error";
   fetchDurationMs?: number;
+  accessMode?: string;
+  strategy?: SourceStrategy;
 };
 
 export type SourceStatus = {

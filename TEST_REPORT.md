@@ -35,6 +35,11 @@ GET http://127.0.0.1:3001/api/health
 结果：{"ok":true,"ttlSec":600,"refreshCooldownSec":60,"sourceCount":12}
 ```
 
+```text
+GET http://127.0.0.1:3001/api/sources
+结果：返回 12 个数据源策略；无公开 API 平台包含第三方聚合源、公开页面解析、历史快照或离线数据兜底说明。
+```
+
 API 摘要已保存到：
 
 ```text
@@ -67,6 +72,7 @@ GET http://127.0.0.1:3001/api/hot?refresh=1
 结果：
 - weibo: 10 条，真实接口
 - zhihu: 10 条，第三方接口不可用时降级
+- zhihu: 第三方接口不可用时，先尝试公开页面解析，再切换离线样例
 - bilibili: 10 条，真实接口
 - huggingface: 10 条，直连失败时国内入口推荐
 - aihot: 10 条，真实接口
@@ -100,6 +106,7 @@ GET http://127.0.0.1:3001/api/archive?range=today
 - [x] 单卡“重新获取”可重新请求对应平台。
 - [x] 失败或降级平台不影响其他平台。
 - [x] GitHub / Hugging Face 显示“国内入口 / 原站”。
+- [x] 卡片和详情抽屉显示当前采集策略，用户可识别官方 API、第三方源、缓存、快照或离线兜底。
 - [x] 页脚合规文案存在。
 - [x] 线上前端 `https://today-hotsearch-home.vercel.app` 可访问。
 - [x] 线上后端 `https://today-hotsearch-home-server.vercel.app/api/hot` 返回 12 个平台。
@@ -119,6 +126,7 @@ GET http://127.0.0.1:3001/api/archive?range=today
 8. 强制刷新无冷却：新增 `REFRESH_COOLDOWN_SEC`，冷却期内返回缓存并标记响应头。
 9. Hacker News 并发过多：限制详情请求数量和超时时间，失败时降级到离线快照。
 10. 归档持久性不透明：`/api/archive` 返回 `persistent/message`，前端状态条显示临时归档。
+11. 无公开 API 站点国内访问不稳定：新增 `/api/sources` 策略层，知乎增加公开页面解析兜底，前端展示采集与国内访问策略。
 
 ## 剩余风险
 

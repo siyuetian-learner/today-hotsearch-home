@@ -502,6 +502,16 @@ h1 {
   line-height: 1.35;
 }
 
+.strategy-line {
+  margin-top: 3px;
+  color: #7a8696;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .card-badges {
   display: flex;
   flex: 0 0 auto;
@@ -713,6 +723,16 @@ h1 {
   flex: 1 1 auto;
   color: #a15d00;
   text-align: center;
+}
+
+.strategy-tip {
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow: hidden;
+  color: #4b647f;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .foot-actions {

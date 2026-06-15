@@ -1,4 +1,4 @@
-const { fetchJson } = require("./http");
+const { fetchJson, fetchText } = require("./http");
 
 const fallbackItems = [
   ["如何看待 AI 编程工具进入日常开发", "356.2万", "AI 工具进入真实工作流的讨论持续升温。"],
@@ -49,11 +49,79 @@ function pickUrl(item, title) {
   );
 }
 
+function decodeHtml(value = "") {
+  return String(value)
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x2F;/g, "/");
+}
+
+function extractJsonBlock(html) {
+  const patterns = [
+    /<script[^>]+id=["']js-initialData["'][^>]*>([\s\S]*?)<\/script>/i,
+    /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+    /window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});\s*<\/script>/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+
+    if (match?.[1]) {
+      return JSON.parse(decodeHtml(match[1]).trim());
+    }
+  }
+
+  return null;
+}
+
+function collectZhihuHotItems(value, items = []) {
+  if (!value || items.length >= 24) return items;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectZhihuHotItems(item, items);
+      if (items.length >= 24) break;
+    }
+    return items;
+  }
+
+  if (typeof value !== "object") return items;
+
+  const maybeTitle = pickTitle(value);
+  if (maybeTitle && maybeTitle !== "未命名知乎话题") {
+    items.push(value);
+  }
+
+  for (const nested of Object.values(value)) {
+    collectZhihuHotItems(nested, items);
+    if (items.length >= 24) break;
+  }
+
+  return items;
+}
+
+async function fetchZhihuHotPage() {
+  const pageUrl = process.env.ZHIHU_HOT_PAGE || "https://www.zhihu.com/billboard";
+  const html = await fetchText(pageUrl, { timeoutMs: 8000 });
+  const json = extractJsonBlock(html);
+  const list = collectZhihuHotItems(json);
+
+  if (!list.length) {
+    throw new Error("empty zhihu page hot list");
+  }
+
+  return list;
+}
+
 async function fetchZhihuHot({ q = "" } = {}) {
   const api = process.env.ZHIHU_HOT_API || "https://api-hot.imsyy.top/zhihu";
   let list = [];
   let degraded = false;
   let message;
+  let accessMode = "第三方聚合接口";
 
   try {
     const data = await fetchJson(api);
@@ -62,9 +130,17 @@ async function fetchZhihuHot({ q = "" } = {}) {
       throw new Error("empty zhihu hot list");
     }
   } catch (error) {
-    degraded = true;
-    message = "知乎官方接口需要认证，第三方接口暂不可用，已切换为知乎示例热榜。";
-    list = fallbackItems.map(([title, heat, summary]) => ({ title, heat, summary }));
+    try {
+      list = await fetchZhihuHotPage();
+      degraded = true;
+      accessMode = "公开页面解析";
+      message = "知乎官方接口需要认证，第三方接口暂不可用，已尝试解析公开热榜页面。";
+    } catch {
+      degraded = true;
+      accessMode = "内置离线样例";
+      message = "知乎官方接口需要认证，第三方接口和公开页面暂不可用，已切换为知乎示例热榜。";
+      list = fallbackItems.map(([title, heat, summary]) => ({ title, heat, summary }));
+    }
   }
 
   const filtered = q ? list.filter((item) => pickTitle(item).includes(q)) : list;
@@ -72,10 +148,12 @@ async function fetchZhihuHot({ q = "" } = {}) {
   return {
     source: "zhihu",
     sourceName: "知乎热榜",
-    listName: degraded ? "知乎热榜（降级）" : "讨论热度榜",
+    listName: degraded ? `知乎热榜（${accessMode}）` : "讨论热度榜",
     updatedAt: new Date().toISOString(),
     degraded,
+    dataState: degraded ? "offline" : "live",
     message,
+    accessMode,
     items: filtered.slice(0, 10).map((item, index) => {
       const title = pickTitle(item);
       return {

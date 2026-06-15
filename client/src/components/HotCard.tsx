@@ -37,6 +37,7 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
           <div>
             <h2 className="platform-name">{getSourceName(board)}</h2>
             <div className="list-name">{getListName(board)}</div>
+            {board.strategy ? <div className="strategy-line">采集：{board.strategy.active}</div> : null}
           </div>
         </div>
         <div className="card-badges">
@@ -87,6 +88,7 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
 
       <footer className="card-foot">
         <span>更新于 {formatRelativeTime(board.updatedAt)}</span>
+        {board.strategy ? <span className="strategy-tip" title={board.strategy.domesticAccess}>国内可达：{board.strategy.primary}</span> : null}
         {board.degraded ? <span className="degraded-tip">{board.message || "已启用兜底数据"}</span> : null}
         <span className="foot-actions">
           {items.length > 5 ? (

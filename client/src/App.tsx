@@ -147,8 +147,9 @@ export function App() {
     const live = visibleBoards.filter((board) => board.dataState === "live").length;
     const cached = visibleBoards.filter((board) => board.dataState === "cached").length;
     const degraded = visibleBoards.filter((board) => board.degraded || ["stale", "offline", "error"].includes(board.dataState || "")).length;
+    const noPublicApi = visibleBoards.filter((board) => board.strategy?.noPublicApi).length;
     const failed = statuses.filter((status) => status.status === "failed").length;
-    return { live, cached, degraded, failed };
+    return { live, cached, degraded, failed, noPublicApi };
   }, [statuses, visibleBoards]);
 
   const detailTitleId = selectedHot ? `detail-title-${selectedHot.board.source}-${selectedHot.item.rank}` : undefined;
@@ -385,6 +386,7 @@ export function App() {
           <span>实时 {dataSummary.live}</span>
           <span>缓存 {dataSummary.cached}</span>
           <span>降级 {dataSummary.degraded}</span>
+          <span>无API兜底 {dataSummary.noPublicApi}</span>
           <span>失败 {dataSummary.failed}</span>
           <span>归档快照 {archiveCount}</span>
           {archiveMessage ? (
@@ -478,6 +480,16 @@ export function App() {
               <h3>为什么上榜</h3>
               <p>{selectedHot.item.why || "该条目在当前平台的搜索、点击、评论或社区互动信号较高。"}</p>
             </section>
+            {selectedHot.board.strategy ? (
+              <section className="detail-section">
+                <h3>采集与访问策略</h3>
+                <p>
+                  当前：{selectedHot.board.strategy.active}。优先使用{selectedHot.board.strategy.primary}；兜底路径：
+                  {selectedHot.board.strategy.fallbacks.join(" / ")}。{selectedHot.board.strategy.domesticAccess}
+                </p>
+                {selectedHot.board.strategy.note ? <p>{selectedHot.board.strategy.note}</p> : null}
+              </section>
+            ) : null}
             {relatedItems.length ? (
               <section className="detail-section">
                 <h3>相似热点</h3>

@@ -23,6 +23,32 @@ async function fetchJson(url, options = {}) {
   }
 }
 
+async function fetchText(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 12000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.6",
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+        ...(options.headers || {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+
+    return await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchJsonWithRetry(url, options = {}) {
   const retries = Number(options.retries ?? 1);
   let lastError;
@@ -44,5 +70,6 @@ async function fetchJsonWithRetry(url, options = {}) {
 
 module.exports = {
   fetchJson,
+  fetchText,
   fetchJsonWithRetry,
 };

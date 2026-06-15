@@ -94,6 +94,7 @@ GET /api/archive?range=today
 GET /api/archive?range=yesterday
 GET /api/archive?range=7d
 GET /api/status
+GET /api/sources
 ```
 
 ## 环境变量
@@ -116,6 +117,7 @@ GET /api/status
 |HUGGINGFACE_CN_BASE|https://hf-mirror.com|Hugging Face 国内入口|
 |GITHUB_CN_BASE|https://kkgithub.com|GitHub 国内入口|
 |ZHIHU_HOT_API|https://api-hot.imsyy.top/zhihu|知乎第三方热榜接口|
+|ZHIHU_HOT_PAGE|https://www.zhihu.com/billboard|知乎第三方接口失败后的公开页面解析兜底|
 |DAILY_HOT_API_BASE|https://api-hot.imsyy.top|百度、抖音、头条、36氪、IT之家等聚合源基础地址|
 |ARCHIVE_DAYS|7|本地快照保留天数|
 |ARCHIVE_TIMEZONE_OFFSET|8|归档日期按中国时区偏移计算|
@@ -124,7 +126,7 @@ GET /api/status
 
 - 微博：`https://weibo.com/ajax/side/hotSearch`
 - B站：`https://s.search.bilibili.com/main/hotword?limit=20`
-- 知乎：第三方聚合 API 优先；接口不可用时显示降级数据并标记提示
+- 知乎：第三方聚合 API 优先；接口不可用时尝试解析公开热榜页面，再切换历史快照或离线样例
 - 百度、抖音、今日头条、36氪、IT之家：DailyHotApi 风格公开聚合接口优先；接口不可用时显示内置离线快照
 - AI HOT：`https://aihot.virxact.com/api/public/items`
 - Hugging Face：公开趋势接口优先；访问不稳定时切换国内入口推荐列表
@@ -134,6 +136,7 @@ GET /api/status
 ## 国内访问说明
 
 GitHub 与 Hugging Face 对部分中文用户可能访问不稳定。项目默认把标题链接转换为国内入口，并在每条内容中保留「原站」链接。
+对没有稳定公开 API 的平台，前端不直接访问原站页面，而是读取本站后端聚合后的 `/api/hot`。后端按“第三方聚合源 / 公开页面解析 / 历史快照 / 内置离线数据”的顺序兜底，并通过 `/api/sources` 返回每个平台的采集策略。页面卡片和详情抽屉会显示当前使用的策略，方便判断数据是实时、缓存还是降级结果。
 
 如镜像不可用，可替换环境变量：
 
