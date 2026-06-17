@@ -1,39 +1,14 @@
 import type { HotItem, HotPlatform } from "../types/hot";
 import { getMetricText, getSourceName } from "./config";
+import type { LeadCategory } from "../utils/insights";
 
 type Props = {
   boards: HotPlatform[];
+  leads: LeadCategory[];
   onSelectItem: (board: HotPlatform, item: HotItem) => void;
 };
 
-const leadCategories = [
-  {
-    code: "AI",
-    className: "is-ai",
-    title: "AI 工具进入日常开发与企业落地",
-    desc: "知乎、AI HOT、Hugging Face、GitHub 同时出现高热话题。",
-  },
-  {
-    code: "NEWS",
-    className: "is-news",
-    title: "考试、出行、政策类信息持续升温",
-    desc: "微博、百度、今日头条集中出现高考、端午、消费补贴等议题。",
-  },
-  {
-    code: "SOCIAL",
-    className: "is-social",
-    title: "视频与社交平台承接生活化热点",
-    desc: "B站、抖音更偏校园、娱乐、科普和实用教程内容。",
-  },
-  {
-    code: "TECH",
-    className: "is-tech",
-    title: "科技与开发者社区关注工具效率",
-    desc: "36氪、IT之家、Hacker News 更集中在硬件、开源和工程实践。",
-  },
-];
-
-export function FocusPanel({ boards, onSelectItem }: Props) {
+export function FocusPanel({ boards, leads, onSelectItem }: Props) {
   const focusItems = boards
     .filter((board) => !board.error && board.items?.length)
     .slice(0, 4)
@@ -54,9 +29,12 @@ export function FocusPanel({ boards, onSelectItem }: Props) {
               <span>{new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 更新</span>
             </div>
             <div className="lead-categories" aria-label="今日主线分类">
-              {leadCategories.map((category) => (
+              {leads.map((category) => (
                 <article className={`lead-category ${category.className}`} key={category.code}>
-                  <span className="category-code">{category.code}</span>
+                  <span className="category-code">
+                    {category.code}
+                    <em>{category.sourceCount} 源</em>
+                  </span>
                   <h3>{category.title}</h3>
                   <p>{category.desc}</p>
                 </article>

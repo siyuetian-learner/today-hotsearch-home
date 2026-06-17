@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAllHot, fetchArchive, fetchHotPlatform } from "./api/hot";
 import { CategoryTabs } from "./components/CategoryTabs";
+import { CompositePanel } from "./components/CompositePanel";
 import {
   categorySources,
   formatRelativeTime,
@@ -16,10 +17,18 @@ import { Footer } from "./components/Footer";
 import { HotCard } from "./components/HotCard";
 import { fallbackHotResponse } from "./data/fallbackHot";
 import type { HotItem, HotPlatform, SourceStatus } from "./types/hot";
+import { buildCompositeRanking, buildLeadCategories, buildShareDigest } from "./utils/insights";
 
 type ViewMode = "cards" | "reader";
 type ArchiveRange = "today" | "yesterday" | "7d";
 type SelectedHot = { board: HotPlatform; item: HotItem } | null;
+
+const sceneShortcuts = [
+  { label: "大众热点", desc: "微博、百度、知乎、B站、抖音", category: "general" },
+  { label: "AI 与科技", desc: "AI HOT、模型、开源、科技媒体", category: "ai" },
+  { label: "开发者关注", desc: "GitHub、Hacker News、Hugging Face", category: "dev" },
+  { label: "新闻速览", desc: "百度、今日头条、微博", category: "news" },
+];
 
 function readStoredString(key: string, fallback: string) {
   try {
@@ -90,6 +99,21 @@ function findRelated(selected: SelectedHot, boards: HotPlatform[]) {
     .slice(0, 5);
 }
 
+function getAudience(board: HotPlatform) {
+  if (["huggingface", "github", "hackernews", "aihot"].includes(board.source)) return "适合 AI 从业者、开发者、产品经理和技术内容创作者优先查看。";
+  if (["weibo", "douyin", "bilibili", "zhihu"].includes(board.source)) return "适合需要了解大众讨论、社交传播和内容选题的人查看。";
+  if (["baidu", "toutiao"].includes(board.source)) return "适合需要快速掌握新闻、民生、政策和搜索趋势的人查看。";
+  return "适合关注行业变化、科技产品和商业趋势的人查看。";
+}
+
+function getImpact(board: HotPlatform, item: HotItem) {
+  if (item.why) return item.why;
+  if (["huggingface", "github", "hackernews", "aihot"].includes(board.source)) return "可能影响工具选型、内容选题、产品规划或技术学习方向。";
+  if (["weibo", "douyin", "bilibili", "zhihu"].includes(board.source)) return "可能影响社交讨论、短视频选题、品牌传播和用户关注点。";
+  if (["baidu", "toutiao"].includes(board.source)) return "可能影响公众信息获取、出行决策、政策理解和民生关注。";
+  return "可能影响行业判断、产品方向和后续跟进优先级。";
+}
+
 export function App() {
   const [boards, setBoards] = useState<HotPlatform[]>([]);
   const [ttlSec, setTtlSec] = useState(600);
@@ -108,6 +132,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedText, setUpdatedText] = useState("");
+  const [shareState, setShareState] = useState("");
   const drawerRef = useRef<HTMLElement | null>(null);
   const searchTimer = useRef<number | undefined>(undefined);
   const requestSeq = useRef(0);
@@ -127,6 +152,10 @@ export function App() {
       .sort((a, b) => a.item.rank - b.item.rank)
       .slice(0, 18);
   }, [visibleBoards]);
+
+  const leadCategories = useMemo(() => buildLeadCategories(visibleBoards), [visibleBoards]);
+
+  const compositeRanking = useMemo(() => buildCompositeRanking(visibleBoards, 20), [visibleBoards]);
 
   const relatedItems = useMemo(() => findRelated(selectedHot, orderedBoards), [orderedBoards, selectedHot]);
 
@@ -270,6 +299,25 @@ export function App() {
     loadArchive(range);
   }
 
+  async function shareDigest() {
+    const text = buildShareDigest(compositeRanking, leadCategories);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareState("已复制");
+    } catch {
+      setShareState("可手动复制");
+      window.prompt("复制今日热搜快报", text);
+    }
+
+    window.setTimeout(() => setShareState(""), 1600);
+  }
+
+  function applyScene(category: string) {
+    setActiveCategory(category);
+    setViewMode("cards");
+  }
+
   useEffect(() => {
     loadBoards();
     loadArchive("today");
@@ -345,6 +393,15 @@ export function App() {
           </div>
         </section>
 
+        <section className="scene-panel" aria-label="高频场景">
+          {sceneShortcuts.map((scene) => (
+            <button className={activeCategory === scene.category ? "is-active" : ""} key={scene.category} type="button" onClick={() => applyScene(scene.category)}>
+              <strong>{scene.label}</strong>
+              <span>{scene.desc}</span>
+            </button>
+          ))}
+        </section>
+
         <section className="data-strip" aria-label="数据状态">
           <span>{resultStatus}</span>
           <span>实时 {dataSummary.live}</span>
@@ -408,7 +465,8 @@ export function App() {
           </section>
         ) : (
           <>
-            <FocusPanel boards={visibleBoards} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
+            <FocusPanel boards={visibleBoards} leads={leadCategories} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
+            <CompositePanel ranking={compositeRanking} shareState={shareState} onShare={shareDigest} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <section className="boards" aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard
@@ -455,6 +513,14 @@ export function App() {
             <section className="detail-section">
               <h3>为什么上榜</h3>
               <p>{selectedHot.item.why || "该条目在当前平台的搜索、点击、评论或社区互动信号较高。"}</p>
+            </section>
+            <section className="detail-section">
+              <h3>适合谁看</h3>
+              <p>{getAudience(selectedHot.board)}</p>
+            </section>
+            <section className="detail-section">
+              <h3>可能影响</h3>
+              <p>{getImpact(selectedHot.board, selectedHot.item)}</p>
             </section>
             {selectedHot.board.strategy ? (
               <section className="detail-section">
