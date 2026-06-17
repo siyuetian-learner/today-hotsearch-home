@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import type { HotItem, HotPlatform } from "../types/hot";
 import {
   formatRelativeTime,
@@ -7,8 +6,6 @@ import {
   getSourceName,
   getSourceType,
   getStateTone,
-  getTrendText,
-  platformColors,
   safeHref,
 } from "./config";
 
@@ -23,27 +20,16 @@ type Props = {
 export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Props) {
   const items = board.items || [];
   const visibleItems = expanded ? items : items.slice(0, 5);
+  const hasLongMetrics = ["huggingface", "github", "hackernews", "aihot"].includes(board.source);
 
   return (
-    <article className="hot-card" style={{ "--platform-color": platformColors[board.source] || "#64748b" } as CSSProperties}>
-      <header className="card-head">
-        <div className="window-dots" aria-hidden="true">
-          <span />
-          <span />
-          <span />
+    <article className={`board ${hasLongMetrics ? "has-long-metrics" : ""}`} data-source={board.source}>
+      <header className="board-head">
+        <div className="board-title">
+          <h2>{getSourceName(board)}</h2>
+          <p>{getListName(board)}</p>
         </div>
-        <div className="platform">
-          <span className="platform-mark" aria-hidden="true" />
-          <div>
-            <h2 className="platform-name">{getSourceName(board)}</h2>
-            <div className="list-name">{getListName(board)}</div>
-            {board.strategy ? <div className="strategy-line">采集：{board.strategy.active}</div> : null}
-          </div>
-        </div>
-        <div className="card-badges">
-          <span className={`source-badge ${getStateTone(board)}`}>{getSourceType(board)}</span>
-          <span className="badge">{expanded ? "Top 10" : "Top 5"}</span>
-        </div>
+        <span className={`state ${getStateTone(board)}`}>{getSourceType(board)}</span>
       </header>
 
       {board.error ? (
@@ -54,21 +40,17 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
             const metric = getMetricText(board, item);
             const itemHref = safeHref(item.url || item.cnUrl);
             const originalHref = safeHref(item.originalUrl);
+
             return (
-              <li className={`hot-item ${item.summary ? "has-summary" : ""}`} key={`${board.source}-${item.rank}-${item.title}`}>
-                <span className="rank">{item.rank || index + 1}</span>
-                <span className="item-body">
-                  <button className="title title-button" title={item.title} type="button" onClick={() => onSelectItem(board, item)}>
+              <li className="hot-item" key={`${board.source}-${item.rank}-${item.title}`}>
+                <span className="rank">{String(item.rank || index + 1).padStart(2, "0")}</span>
+                <span className="topic">
+                  <button className="title-button" title={item.title} type="button" onClick={() => onSelectItem(board, item)}>
                     {item.title}
                   </button>
-                  <span className="item-meta">
-                    {metric ? <span className="heat">{metric}</span> : null}
-                    <span className={`trend-chip trend-${item.trend || "steady"}`}>{getTrendText(item)}</span>
-                    {item.summary ? <span className="summary">{item.summary}</span> : null}
-                  </span>
+                  {item.summary ? <small>{item.summary}</small> : null}
                   {item.originalUrl && item.originalUrl !== item.url ? (
                     <span className="access-links">
-                      <span>访问</span>
                       <a href={itemHref} rel="noreferrer" target="_blank">
                         国内入口
                       </a>
@@ -78,6 +60,7 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
                     </span>
                   ) : null}
                 </span>
+                {metric ? <span className="metric">{metric}</span> : null}
               </li>
             );
           })}
@@ -86,10 +69,8 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
         <p className="empty-state">没有匹配的热搜</p>
       )}
 
-      <footer className="card-foot">
+      <footer className="board-foot">
         <span>更新于 {formatRelativeTime(board.updatedAt)}</span>
-        {board.strategy ? <span className="strategy-tip" title={board.strategy.domesticAccess}>国内可达：{board.strategy.primary}</span> : null}
-        {board.degraded ? <span className="degraded-tip">{board.message || "已启用兜底数据"}</span> : null}
         <span className="foot-actions">
           {items.length > 5 ? (
             <button className="retry-button expand-button" type="button" onClick={() => onToggle(board.source)}>

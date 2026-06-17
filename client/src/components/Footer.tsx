@@ -1,7 +1,8 @@
 export function Footer() {
   return (
     <footer className="site-footer">
-      本站为个人学习项目，数据来源于各平台公开信息与公开 API，非官方、非商用；热榜结果会缓存并保留轻量快照，异常时自动降级。
+      <span>本项目用于个人学习与产品验证，数据来源于公开接口、公开页面和降级快照。</span>
+      <span>非官方、非商用；海外源优先提供国内入口，异常时保留可读内容，不让页面白屏。</span>
     </footer>
   );
 }

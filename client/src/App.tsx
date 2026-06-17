@@ -74,12 +74,7 @@ function sameText(a: string, b: string) {
 
 function upsertStatus(statuses: SourceStatus[], next: SourceStatus) {
   const found = statuses.some((status) => status.source === next.source);
-
-  if (!found) {
-    return [...statuses, next];
-  }
-
-  return statuses.map((status) => (status.source === next.source ? { ...status, ...next } : status));
+  return found ? statuses.map((status) => (status.source === next.source ? { ...status, ...next } : status)) : [...statuses, next];
 }
 
 function findRelated(selected: SelectedHot, boards: HotPlatform[]) {
@@ -139,7 +134,7 @@ export function App() {
     if (loading) return "正在加载数据...";
     const total = visibleBoards.reduce((sum, board) => sum + (board.items?.length || 0), 0);
     const hidden = hiddenSources.size ? `，已隐藏 ${hiddenSources.size} 个平台` : "";
-    const keywordText = keyword ? `，关键词「${keyword}」` : "";
+    const keywordText = keyword ? `，关键词“${keyword}”` : "";
     return `当前 ${visibleBoards.length} 个榜单，共 ${total} 条结果${keywordText}${hidden}，缓存约 ${Math.round(ttlSec / 60)} 分钟`;
   }, [hiddenSources.size, keyword, loading, ttlSec, visibleBoards]);
 
@@ -164,23 +159,13 @@ export function App() {
       setBoards(data.platforms || []);
       setStatuses(data.statuses || []);
       setTtlSec(data.ttlSec || ttlSec);
-      setUpdatedText(
-        new Date().toLocaleTimeString("zh-CN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
+      setUpdatedText(new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }));
     } catch {
       if (requestSeq.current !== requestId) return;
       setBoards(fallbackHotResponse.platforms);
       setStatuses([]);
       setTtlSec(fallbackHotResponse.ttlSec);
-      setUpdatedText(
-        new Date().toLocaleTimeString("zh-CN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
+      setUpdatedText(new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }));
     } finally {
       if (requestSeq.current === requestId) {
         setLoading(false);
@@ -280,10 +265,6 @@ export function App() {
     }, 260);
   }
 
-  function selectCategory(category: string) {
-    setActiveCategory(category);
-  }
-
   function selectArchiveRange(range: ArchiveRange) {
     setArchiveRange(range);
     loadArchive(range);
@@ -310,9 +291,7 @@ export function App() {
     if (!selectedHot) return undefined;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setSelectedHot(null);
-      }
+      if (event.key === "Escape") setSelectedHot(null);
     }
 
     window.setTimeout(() => drawerRef.current?.focus(), 0);
@@ -324,60 +303,45 @@ export function App() {
     <>
       <header className="site-header">
         <div className="header-inner">
-          <div>
+          <section>
+            <div className="date-line">
+              <span>CN HOT SIGNAL</span>
+              <span>{new Date().toLocaleDateString("zh-CN").replace(/\//g, ".")}</span>
+            </div>
             <h1>今日热搜</h1>
-            <p>面向中文用户的一页式热点工作台，聚合热搜、AI 动态、模型与开源项目。</p>
-          </div>
-          <span className="update-time" aria-live="polite">
-            {updatedText ? `更新于 ${updatedText}` : "等待更新"}
-          </span>
+            <p>聚合中文互联网高频话题，把社交媒体、新闻资讯、科技、AI 和开发者社区整理成一张可快速扫读的实时信号表。</p>
+          </section>
+          <aside className="status-stack" aria-label="运行状态">
+            <div className="status-box">
+              <strong>{sourceOrder.length}</strong>
+              <span>数据源</span>
+            </div>
+            <div className="status-box">
+              <strong>{visibleBoards.reduce((sum, board) => sum + (board.items?.length || 0), 0) || 120}</strong>
+              <span>热点条目</span>
+            </div>
+            <div className="status-box">
+              <strong>{ttlSec}</strong>
+              <span>秒缓存</span>
+            </div>
+          </aside>
         </div>
       </header>
 
       <main className="page-shell">
-        <section className="board-toolbar" aria-label="榜单摘要">
-          <div>
-            <strong>全网实时榜</strong>
-            <span>12 个数据源 · 详情解读 · 速读 · 历史快照 · 国内入口</span>
-          </div>
-          <div className="toolbar-actions">
+        <section className="toolbar" aria-label="筛选工具">
+          <CategoryTabs activeCategory={activeCategory} onChange={setActiveCategory} />
+          <div className="tools">
             <label className="search-box">
               <span>筛选</span>
-              <input
-                onChange={(event) => applySearch(event.target.value)}
-                placeholder="输入关键词"
-                type="search"
-                value={pendingKeyword}
-              />
+              <input onChange={(event) => applySearch(event.target.value)} placeholder="输入关键词筛选" type="search" value={pendingKeyword} />
             </label>
-            <button className="refresh-button" disabled={loading || refreshing} onClick={() => loadBoards({ refresh: true })} type="button">
-              {refreshing ? "刷新中..." : loading ? "加载中..." : "刷新热度"}
+            <button className="density-btn" type="button" onClick={() => setViewMode(viewMode === "cards" ? "reader" : "cards")}>
+              {viewMode === "cards" ? "速读" : "卡片"}
             </button>
-          </div>
-        </section>
-
-        <section className="control-panel" aria-label="榜单筛选">
-          <CategoryTabs activeCategory={activeCategory} onChange={selectCategory} />
-          <div className="panel-actions">
-            <div className="segmented" aria-label="视图切换">
-              <button className={viewMode === "cards" ? "is-active" : ""} type="button" onClick={() => setViewMode("cards")}>
-                卡片
-              </button>
-              <button className={viewMode === "reader" ? "is-active" : ""} type="button" onClick={() => setViewMode("reader")}>
-                速读
-              </button>
-            </div>
-            <div className="segmented archive-switch" aria-label="历史归档">
-              <button className={archiveRange === "today" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("today")}>
-                今天
-              </button>
-              <button className={archiveRange === "yesterday" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("yesterday")}>
-                昨天
-              </button>
-              <button className={archiveRange === "7d" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("7d")}>
-                7天
-              </button>
-            </div>
+            <button className="refresh-button" disabled={loading || refreshing} onClick={() => loadBoards({ refresh: true })} type="button">
+              {refreshing ? "同步中" : loading ? "加载中" : "刷新热度"}
+            </button>
           </div>
         </section>
 
@@ -386,9 +350,10 @@ export function App() {
           <span>实时 {dataSummary.live}</span>
           <span>缓存 {dataSummary.cached}</span>
           <span>降级 {dataSummary.degraded}</span>
-          <span>无API兜底 {dataSummary.noPublicApi}</span>
+          <span>无 API 兜底 {dataSummary.noPublicApi}</span>
           <span>失败 {dataSummary.failed}</span>
           <span>归档快照 {archiveCount}</span>
+          {updatedText ? <span>更新于 {updatedText}</span> : null}
           {archiveMessage ? (
             <span className={archivePersistent === false ? "strip-warning" : ""} title={archiveMessage}>
               {archivePersistent === false ? "临时归档" : "归档可用"}
@@ -408,19 +373,30 @@ export function App() {
           </div>
         </details>
 
+        <div className="archive-actions" aria-label="历史归档">
+          <span>历史快照</span>
+          <button className={archiveRange === "today" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("today")}>
+            今天
+          </button>
+          <button className={archiveRange === "yesterday" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("yesterday")}>
+            昨天
+          </button>
+          <button className={archiveRange === "7d" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("7d")}>
+            7 天
+          </button>
+        </div>
+
         {loading ? (
-          <section className="cards-grid">
-            <article className="hot-card loading-card">
+          <section className="boards">
+            <article className="board loading-card">
               <p className="status-state">正在加载热搜数据...</p>
             </article>
           </section>
         ) : viewMode === "reader" ? (
           <section className="reader-list" aria-label="速读列表">
-            <div className="section-head">
-              <div>
-                <h2>5 分钟速读</h2>
-                <span>合并各平台 Top 3，按排名优先展示</span>
-              </div>
+            <div className="eyebrow">
+              <span>5 分钟速读</span>
+              <span>TOP SIGNAL</span>
             </div>
             {quickItems.map(({ board, item }) => (
               <button className="reader-item" key={`${board.source}-${item.rank}-${item.title}`} type="button" onClick={() => setSelectedHot({ board, item })}>
@@ -433,7 +409,7 @@ export function App() {
         ) : (
           <>
             <FocusPanel boards={visibleBoards} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
-            <section className="cards-grid" aria-label="热搜榜单">
+            <section className="boards" aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard
                   board={board}
@@ -484,7 +460,7 @@ export function App() {
               <section className="detail-section">
                 <h3>采集与访问策略</h3>
                 <p>
-                  当前：{selectedHot.board.strategy.active}。优先使用{selectedHot.board.strategy.primary}；兜底路径：
+                  当前：{selectedHot.board.strategy.active}。优先使用 {selectedHot.board.strategy.primary}；兜底路径：
                   {selectedHot.board.strategy.fallbacks.join(" / ")}。{selectedHot.board.strategy.domesticAccess}
                 </p>
                 {selectedHot.board.strategy.note ? <p>{selectedHot.board.strategy.note}</p> : null}

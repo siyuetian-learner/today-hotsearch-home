@@ -9,10 +9,10 @@ export const platformColors: Record<string, string> = {
   toutiao: "#d83a31",
   "36kr": "#1888ff",
   ithome: "#c9342c",
-  huggingface: "#f0a000",
+  huggingface: "#7a55d7",
   aihot: "#0fa778",
-  github: "#24292f",
-  hackernews: "#ff6600",
+  github: "#2459d6",
+  hackernews: "#d98a15",
 };
 
 export const categorySources: Record<string, string[]> = {
@@ -57,7 +57,7 @@ export const sourceLabels: Record<string, { name: string; listName: string; type
   toutiao: { name: "今日头条", listName: "头条热榜", type: "新闻资讯" },
   "36kr": { name: "36氪", listName: "创投与商业热榜", type: "商业科技" },
   ithome: { name: "IT之家", listName: "科技数码热榜", type: "科技媒体" },
-  huggingface: { name: "Hugging Face", listName: "趋势模型", type: "AI 模型社区" },
+  huggingface: { name: "Hugging Face", listName: "Trending Models", type: "AI 模型社区" },
   aihot: { name: "AI HOT", listName: "AI 精选动态", type: "AI 资讯" },
   github: { name: "GitHub", listName: "近 14 天热门仓库", type: "开源社区" },
   hackernews: { name: "Hacker News", listName: "Top Stories", type: "技术社区" },
@@ -70,7 +70,7 @@ export function getSourceName(board: HotPlatform) {
 }
 
 export function getListName(board: HotPlatform) {
-  return board.listName || sourceLabels[board.source]?.listName || "";
+  return sourceLabels[board.source]?.listName || board.listName || "";
 }
 
 export function getSourceType(board: HotPlatform) {
@@ -142,10 +142,10 @@ export function getMetricText(board: HotPlatform, item: HotItem) {
 
   if (!heat) return "";
   if (["weibo", "baidu", "zhihu", "bilibili", "douyin", "toutiao"].includes(board.source)) return `热度 ${heat}`;
-  if (board.source === "github") return heat.replace(/\bstars\b/i, "星标");
-  if (board.source === "hackernews") return heat.replace(/\bpoints\b/i, "分").replace(/\bcomments\b/i, "评论");
+  if (board.source === "github") return heat.replace(/\bstars\b/i, "stars");
+  if (board.source === "hackernews") return heat.replace(/\bpoints\b/i, "points").replace(/\bcomments\b/i, "comments");
   if (board.source === "huggingface") {
-    return heat.replace(/\blikes\b/i, "点赞").replace(/\bdownloads\b/i, "下载");
+    return heat.replace(/\blikes\b/i, "likes").replace(/\bdownloads\b/i, "downloads");
   }
 
   return heat;
