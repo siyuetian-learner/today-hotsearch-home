@@ -447,13 +447,8 @@ h1 {
   background: transparent;
 }
 
-.trend-list span {
+.trend-list .hot-status {
   justify-self: start;
-  padding: 3px 8px;
-  color: var(--green);
-  border: 1px solid currentColor;
-  border-radius: var(--radius);
-  font-size: 12px;
 }
 
 .trend-list strong {
@@ -1292,6 +1287,19 @@ h1 {
   min-width: 0;
 }
 
+.topic-title-row,
+.composite-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topic-title-row .title-button,
+.composite-title-row strong {
+  min-width: 0;
+}
+
 .title-button {
   display: -webkit-box;
   width: 100%;
@@ -1311,6 +1319,51 @@ h1 {
 
 .title-button:hover {
   color: var(--blue);
+}
+
+.hot-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 7px;
+  color: var(--muted);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hot-status.is-new {
+  color: var(--blue);
+  background: rgba(36, 89, 214, 0.08);
+}
+
+.hot-status.is-hot {
+  color: var(--red);
+  background: rgba(213, 58, 47, 0.08);
+}
+
+.hot-status.is-boiling {
+  color: var(--panel);
+  border-color: var(--red);
+  background: var(--red);
+}
+
+.hot-status.is-up {
+  color: var(--green);
+  background: rgba(12, 155, 116, 0.08);
+}
+
+.hot-status.is-watch {
+  color: var(--ink-soft);
+  background: transparent;
 }
 
 .topic small,

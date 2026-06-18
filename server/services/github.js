@@ -69,6 +69,33 @@ function getDateDaysAgo(days) {
   return date.toISOString().slice(0, 10);
 }
 
+function hasMostlyEnglish(value = "") {
+  const letters = String(value).match(/[a-z]/gi)?.length || 0;
+  const han = String(value).match(/\p{Script=Han}/gu)?.length || 0;
+  return letters > 18 && letters > han * 2;
+}
+
+function inferRepoTopic(repo = {}) {
+  const text = `${repo.full_name || ""} ${repo.description || ""} ${repo.language || ""}`.toLowerCase();
+  const topics = [];
+
+  if (/medical|health|clinic|doctor|patient/.test(text)) topics.push("医疗健康");
+  if (/agent|copilot|assistant|ai|llm|model|midjourney|claude|codex/.test(text)) topics.push("AI 工具或智能体");
+  if (/code|developer|repo|open source|api|sdk|shell|python|typescript|rust/.test(text)) topics.push("开发者工具和开源工程");
+  if (/database|sqlite|search|retrieval|rag|index/.test(text)) topics.push("数据检索或知识库");
+  if (/design|ui|image|video|browser|web|html|css/.test(text)) topics.push("界面、Web 或内容生成");
+
+  return topics.length ? topics.slice(0, 2).join("、") : "近期新出现的技术项目";
+}
+
+function buildRepoSummary(repo = {}) {
+  const description = String(repo.description || "").trim();
+
+  if (description && !hasMostlyEnglish(description)) return description;
+
+  return `这个开源项目主要与${inferRepoTopic(repo)}有关，可用于技术选型、工具复用或观察近期开发者趋势。`;
+}
+
 async function fetchGithub({ q = "" } = {}) {
   const createdAfter = getDateDaysAgo(14);
   const queryParts = [`created:>=${createdAfter}`, "stars:>20"];
@@ -108,7 +135,7 @@ async function fetchGithub({ q = "" } = {}) {
       title: repo.full_name,
       heat: `${repo.stargazers_count} stars`,
       ...toGithubLinks(repo.full_name),
-      summary: repo.description || repo.language || "",
+      summary: buildRepoSummary(repo),
       sourceType: "开源社区",
       trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
       why: fallback

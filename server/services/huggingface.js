@@ -64,6 +64,21 @@ const fallbackModels = [
   },
 ];
 
+function describeModelTask(repo = {}) {
+  const text = [repo.pipeline_tag, repo.library_name, ...(repo.tags || []), repo.id, repo.name]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/embedding|reranker|retrieval|sentence-similarity/.test(text)) return "向量检索、重排序或 RAG 知识库";
+  if (/image-to-text|text-to-image|vision|video|multimodal|image/.test(text)) return "图像理解、视觉生成或多模态任务";
+  if (/text-generation|conversational|chat|llm|agent|inference/.test(text)) return "文本生成、智能问答或 Agent 应用";
+  if (/translation|summarization|classification|token-classification/.test(text)) return "翻译、摘要或文本分类";
+  if (/audio|speech|voice|automatic-speech-recognition/.test(text)) return "语音识别、音频理解或语音交互";
+  if (/dataset/.test(text)) return "模型训练、评测或数据分析";
+  return "AI 模型选型、能力验证或应用原型开发";
+}
+
 function normalizeRepo(repo, index) {
   const id = repo.id || repo.name || "unknown/model";
   const likes = repo.likes ?? repo.likesCount;
@@ -90,10 +105,7 @@ function normalizeRepo(repo, index) {
     title: id,
     heat: heatParts.slice(0, 2).join(" · ") || "Trending",
     ...links,
-    summary: [repo.pipeline_tag, repo.library_name, ...(repo.tags || [])]
-      .filter(Boolean)
-      .slice(0, 4)
-      .join(" · "),
+    summary: `这个模型或数据项目主要面向${describeModelTask(repo)}，适合先判断是否符合当前业务场景。`,
     sourceType: "AI 模型社区",
     trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
     why: "近期点赞、下载或趋势分数较高，适合观察模型能力与任务方向。",

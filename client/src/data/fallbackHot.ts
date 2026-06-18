@@ -271,13 +271,14 @@ function model(rank: number, repoId: string, heat: string, summary = "") {
 }
 
 function repo(rank: number, fullName: string, heat: string, summary = "") {
+  const originalUrl = `https://github.com/${fullName}`;
+
   return {
     rank,
     title: fullName,
     heat,
     summary,
-    url: `https://kkgithub.com/${fullName}`,
-    cnUrl: `https://kkgithub.com/${fullName}`,
-    originalUrl: `https://github.com/${fullName}`,
+    url: originalUrl,
+    originalUrl,
   };
 }

@@ -136,6 +136,26 @@ function truncate(value: string, max = 72) {
   return `${chars.slice(0, max).join("")}...`;
 }
 
+function hasMostlyEnglish(value = "") {
+  const letters = value.match(/[a-z]/gi)?.length || 0;
+  const han = value.match(/\p{Script=Han}/gu)?.length || 0;
+  return letters > 18 && letters > han * 2;
+}
+
+function inferEnglishTopic(title = "", summary = "") {
+  const text = `${title} ${summary}`.toLowerCase();
+  const topics = [];
+
+  if (/medical|health|clinic|doctor|patient/.test(text)) topics.push("医疗健康");
+  if (/agent|copilot|assistant|ai|llm|model|midjourney/.test(text)) topics.push("AI 工具或模型能力");
+  if (/code|developer|github|repo|open source|api|sdk/.test(text)) topics.push("开发者工具和开源项目");
+  if (/database|sqlite|search|retrieval|rag|index/.test(text)) topics.push("数据检索或知识库");
+  if (/design|ui|image|video|browser|web/.test(text)) topics.push("内容生成、视觉设计或 Web 技术");
+  if (/startup|funding|company|business|pricing/.test(text)) topics.push("创业、商业模式或产品策略");
+
+  return topics.length ? topics.slice(0, 2).join("、") : "相关技术或产品方向";
+}
+
 function getUseCase(board: HotPlatform, item: HotItem) {
   const title = item.title.toLowerCase();
   const summary = cleanText(item.summary || "").toLowerCase();
@@ -176,17 +196,25 @@ function getSummary(board: HotPlatform, item: HotItem) {
   const sourceType = item.sourceType || board.listName || "";
 
   if (board.source === "huggingface") {
-    const modelMeta = rawSummary ? `AI 模型：${truncate(rawSummary, 46)}` : "AI 模型：近期在模型社区热度较高。";
+    const modelMeta =
+      rawSummary && !hasMostlyEnglish(rawSummary)
+        ? `AI 模型：${truncate(rawSummary, 46)}`
+        : `AI 模型：主题与${inferEnglishTopic(item.title, rawSummary)}有关。`;
     return `${modelMeta} ${getUseCase(board, item)}`;
   }
 
   if (board.source === "github") {
-    const repoDesc = rawSummary ? `开源项目：${truncate(rawSummary, 52)}` : "开源项目：近期新增星标较多。";
+    const repoDesc =
+      rawSummary && !hasMostlyEnglish(rawSummary)
+        ? `开源项目：${truncate(rawSummary, 52)}`
+        : `开源项目：主题与${inferEnglishTopic(item.title, rawSummary)}有关。`;
     return `${repoDesc} ${getUseCase(board, item)}`;
   }
 
   if (["aihot", "hackernews", "36kr", "ithome"].includes(board.source)) {
-    return rawSummary ? `${truncate(rawSummary, 72)} ${getUseCase(board, item)}` : getUseCase(board, item);
+    if (rawSummary && !hasMostlyEnglish(rawSummary)) return `${truncate(rawSummary, 72)} ${getUseCase(board, item)}`;
+    if (rawSummary && hasMostlyEnglish(rawSummary)) return `这条内容与${inferEnglishTopic(item.title, rawSummary)}有关。${getUseCase(board, item)}`;
+    return getUseCase(board, item);
   }
 
   if (rawSummary) return truncate(rawSummary, 76);
@@ -203,6 +231,26 @@ function getReason(board: HotPlatform, item: HotItem, sourceCount: number) {
   if (item.cnUrl || item.originalUrl) parts.push("有国内入口 / 原站链接");
 
   return parts.join(" · ");
+}
+
+function getLeadDescription(code: string, top: RankedHot) {
+  if (code === "AI") {
+    return `AI 工具和模型正在进入真实工作流。${top.summary}`;
+  }
+
+  if (code === "NEWS") {
+    return `公共事件、民生和社会议题正在形成今天的讨论背景。${top.summary}`;
+  }
+
+  if (code === "SOCIAL") {
+    return `社交与视频平台正在放大大众情绪和内容选题。${top.summary}`;
+  }
+
+  if (code === "TECH") {
+    return `科技和开发者社区更关注工具效率、开源项目和产品机会。${top.summary}`;
+  }
+
+  return top.summary;
 }
 
 export function buildCompositeRanking(boards: HotPlatform[], limit = 20): RankedHot[] {
@@ -229,7 +277,6 @@ export function buildLeadCategories(boards: HotPlatform[]): LeadCategory[] {
     const categoryBoards = boards.filter((board) => category.sources.includes(board.source) && board.items?.length);
     const ranking = buildCompositeRanking(categoryBoards, 1);
     const top = ranking[0];
-    const sourceNames = categoryBoards.slice(0, 4).map(getSourceName).join("、");
 
     if (!top) {
       return {
@@ -245,7 +292,7 @@ export function buildLeadCategories(boards: HotPlatform[]): LeadCategory[] {
       code: category.code,
       className: category.className,
       title: top.item.title,
-      desc: `${sourceNames || "相关平台"}正在升温。${top.summary}`,
+      desc: getLeadDescription(category.code, top),
       sourceCount: categoryBoards.length,
     };
   });

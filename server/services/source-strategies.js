@@ -77,11 +77,11 @@ const strategies = {
     domesticAccess: "由本站后端中转并缓存，前端不直接请求第三方接口。",
   },
   github: {
-    active: "官方接口 + 国内镜像入口",
+    active: "官方接口 + 可选镜像入口",
     primary: "GitHub Search API",
-    fallbacks: ["国内镜像入口", "历史快照", "内置开源项目推荐"],
-    domesticAccess: "标题默认指向 GitHub 国内入口，同时保留原站链接。",
-    note: "国内入口可通过 GITHUB_CN_BASE 替换。",
+    fallbacks: ["历史快照", "内置开源项目推荐", "可配置镜像入口"],
+    domesticAccess: "默认保留 GitHub 原站链接；只有配置了可用 GITHUB_CN_BASE 时才显示国内入口，避免无效镜像 404。",
+    note: "GitHub 镜像稳定性不固定，本站不会默认使用已知失效镜像。",
   },
   hackernews: {
     active: "官方公开接口",

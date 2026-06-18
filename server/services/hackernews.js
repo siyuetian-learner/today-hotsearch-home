@@ -3,16 +3,16 @@ const { fetchJsonWithRetry } = require("./http");
 const apiBase = "https://hacker-news.firebaseio.com/v0";
 
 const fallbackStories = [
-  ["Show HN: A small local-first notes database", "326 points · 118 comments", "Show HN 内容常代表开发者社区的新工具试验。"],
-  ["SQLite on the edge: practical lessons", "284 points · 86 comments", "基础设施和数据库工程经验在 HN 上持续受欢迎。"],
-  ["Why good developer tools feel invisible", "251 points · 72 comments", "工具体验和生产力话题容易引发高质量讨论。"],
-  ["A deep dive into browser rendering performance", "219 points · 54 comments", "前端性能和浏览器内部机制仍是开发者关注重点。"],
-  ["Ask HN: How are you using local AI models?", "198 points · 143 comments", "本地模型和隐私计算是近年高频议题。"],
-  ["Open source maintainers and sustainable funding", "176 points · 49 comments", "开源治理和商业化讨论具备长期价值。"],
-  ["Building reliable cron jobs in serverless apps", "153 points · 37 comments", "Serverless 运维经验和故障复盘常进入热门。"],
-  ["The quiet return of personal websites", "141 points · 62 comments", "独立网站和内容发布工具获得社区关注。"],
-  ["Lessons from rewriting a compiler in Rust", "128 points · 31 comments", "系统语言和编译器实践保持固定受众。"],
-  ["A visual guide to database indexes", "113 points · 25 comments", "高质量技术解释类文章容易获得收藏。"],
+  ["Show HN: A small local-first notes database", "326 points · 118 comments", "这是开发者展示的本地优先笔记数据库，重点看它如何在离线、同步和个人知识管理之间取舍。"],
+  ["SQLite on the edge: practical lessons", "284 points · 86 comments", "这是关于边缘环境中使用 SQLite 的工程经验，适合关注轻量数据库、部署成本和可靠性的人。"],
+  ["Why good developer tools feel invisible", "251 points · 72 comments", "这是开发者工具体验讨论，核心是好工具如何减少打断、降低操作成本并提升编码效率。"],
+  ["A deep dive into browser rendering performance", "219 points · 54 comments", "这是浏览器渲染性能解析，适合前端开发者理解页面卡顿、布局和绘制瓶颈。"],
+  ["Ask HN: How are you using local AI models?", "198 points · 143 comments", "这是社区问答，讨论本地 AI 模型在隐私、成本、离线使用和个人工作流中的真实用法。"],
+  ["Open source maintainers and sustainable funding", "176 points · 49 comments", "这是开源维护者可持续收入讨论，重点看开源项目如何在社区价值和商业化之间平衡。"],
+  ["Building reliable cron jobs in serverless apps", "153 points · 37 comments", "这是 Serverless 定时任务实践，适合关注任务重试、监控告警和线上稳定性的开发者。"],
+  ["The quiet return of personal websites", "141 points · 62 comments", "这是个人网站和独立发布回潮的讨论，适合内容创作者和开发者观察发布工具趋势。"],
+  ["Lessons from rewriting a compiler in Rust", "128 points · 31 comments", "这是用 Rust 重写编译器的复盘，重点看系统语言、性能和工程维护性的取舍。"],
+  ["A visual guide to database indexes", "113 points · 25 comments", "这是数据库索引可视化教程，适合快速理解查询加速、索引结构和性能优化。"],
 ];
 
 function fallbackItems(q) {
@@ -40,6 +40,35 @@ function decodeHtml(value = "") {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+}
+
+function inferStoryTopic(title = "") {
+  const text = title.toLowerCase();
+  const tags = [];
+
+  if (/medical|health|clinic|patient|doctor/.test(text)) tags.push("医疗健康");
+  if (/ai|llm|agent|midjourney|model|neural/.test(text)) tags.push("AI 工具或模型");
+  if (/code|developer|github|open source|compiler|rust|python|javascript|api|sdk/.test(text)) tags.push("开发者工具或开源技术");
+  if (/database|sqlite|postgres|search|index|retrieval|rag/.test(text)) tags.push("数据存储、检索或知识库");
+  if (/browser|web|css|html|ui|design|image|video/.test(text)) tags.push("Web、设计或内容生成");
+  if (/startup|funding|business|pricing|company/.test(text)) tags.push("创业、商业模式或产品策略");
+
+  return tags.length ? tags.slice(0, 2).join("、") : "技术产品、工程实践或社区观点";
+}
+
+function buildStorySummary(story) {
+  const title = decodeHtml(story.title || "");
+  const topic = inferStoryTopic(title);
+
+  if (/^ask hn/i.test(title)) {
+    return `这是 Hacker News 的社区问答，讨论重点与${topic}有关。适合快速了解海外开发者正在遇到的问题、采用的工具和真实反馈。`;
+  }
+
+  if (/^show hn/i.test(title)) {
+    return `这是开发者在 Hacker News 展示的新项目，主题与${topic}有关。可以关注它解决了什么问题、是否有可复用的产品或技术思路。`;
+  }
+
+  return `这是 Hacker News 技术社区正在讨论的一条链接，主题与${topic}有关。它的分数和评论数较高，说明开发者正在集中讨论它的价值、实现方式或潜在影响。`;
 }
 
 async function fetchHackerNews({ q = "" } = {}) {
@@ -93,7 +122,7 @@ async function fetchHackerNews({ q = "" } = {}) {
         title: decodeHtml(story.title),
         url,
         heat: `${score} points · ${comments} comments`,
-        summary: `作者 ${story.by || "unknown"}，讨论入口保留在 HN 原帖。`,
+        summary: buildStorySummary(story),
         originalUrl: `https://news.ycombinator.com/item?id=${story.id}`,
         sourceType: "技术社区",
         trend: index < 3 ? "up" : index < 8 ? "steady" : "down",

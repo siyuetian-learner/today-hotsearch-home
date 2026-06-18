@@ -10,6 +10,7 @@ import {
   getMetricText,
   getSourceName,
   getSourceType,
+  isKnownBrokenDomesticHref,
   safeHref,
   sourceLabels,
   sourceOrder,
@@ -135,6 +136,82 @@ function getImpact(board: HotPlatform, item: HotItem) {
   if (["weibo", "douyin", "bilibili", "zhihu"].includes(board.source)) return "可能影响社交讨论、短视频选题、品牌传播和用户关注点。";
   if (["baidu", "toutiao"].includes(board.source)) return "可能影响公众信息获取、出行决策、政策理解和民生关注。";
   return "可能影响行业判断、产品方向和后续跟进优先级。";
+}
+
+function hasMostlyEnglish(value = "") {
+  const letters = value.match(/[a-z]/gi)?.length || 0;
+  const han = value.match(/\p{Script=Han}/gu)?.length || 0;
+  return letters > 18 && letters > han * 2;
+}
+
+function inferTopicUse(title = "", summary = "") {
+  const text = `${title} ${summary}`.toLowerCase();
+  const uses = [];
+
+  if (/medical|health|clinic|doctor|patient|医疗|健康/.test(text)) uses.push("医疗健康场景");
+  if (/agent|copilot|assistant|ai|llm|model|midjourney|模型|智能体/.test(text)) uses.push("AI 工具或模型能力");
+  if (/code|developer|github|repo|open source|api|sdk|开发|开源|代码/.test(text)) uses.push("开发者工具和开源项目");
+  if (/database|sqlite|search|retrieval|rag|index|数据|检索|搜索/.test(text)) uses.push("数据检索或知识库");
+  if (/design|ui|image|video|生成|视觉|图像|界面/.test(text)) uses.push("内容生成或视觉设计");
+
+  return uses.length ? uses.slice(0, 2).join("、") : "相关领域的新项目、文章或讨论";
+}
+
+function getDetailSummary(board: HotPlatform, item: HotItem) {
+  const rawSummary = String(item.summary || "").trim();
+  const topicUse = inferTopicUse(item.title, rawSummary);
+
+  if (board.source === "hackernews") {
+    const storyType = /^ask hn/i.test(item.title)
+      ? "社区问答"
+      : /^show hn/i.test(item.title)
+        ? "开发者展示的新项目"
+        : "技术社区正在讨论的链接或文章";
+    return `这是 Hacker News 上的一条${storyType}，主题与${topicUse}有关。它的分数和评论数较高，说明海外开发者正在讨论它的产品形态、技术实现或行业影响。`;
+  }
+
+  if (board.source === "github") {
+    if (rawSummary && !hasMostlyEnglish(rawSummary)) {
+      return `这是一个 GitHub 开源仓库：${rawSummary}。可以先看它是否适合做技术选型、工具复用或产品调研。`;
+    }
+
+    return `这是一个 GitHub 开源仓库，主题与${topicUse}有关。原站描述偏英文，页面已转成中文解释，建议从用途、星标增长和仓库活跃度判断是否值得继续查看。`;
+  }
+
+  if (board.source === "huggingface") {
+    if (rawSummary && !hasMostlyEnglish(rawSummary)) {
+      return `这是 Hugging Face 上的模型或数据项目：${rawSummary}。可以用于判断模型能力、应用方向和是否值得试用。`;
+    }
+
+    return `这是 Hugging Face 上的模型或数据项目，主题与${topicUse}有关。可以先判断它适合文本生成、视觉理解、检索增强或应用原型中的哪类场景。`;
+  }
+
+  if (board.source === "aihot") {
+    return rawSummary
+      ? `这是 AI 领域的一条资讯：${rawSummary}。重点看它对应的产品、公司或技术方向是否会影响你的工具选择。`
+      : "这是 AI 领域正在升温的资讯，适合用来跟进产品动态、技术方向和内容选题。";
+  }
+
+  return rawSummary || "该热点正在榜单中升温，建议结合原站信息继续核实背景。";
+}
+
+function getDetailLinks(item: HotItem) {
+  const primary = safeHref(item.originalUrl || (isKnownBrokenDomesticHref(item.url) ? "" : item.url));
+  const fallback = safeHref(isKnownBrokenDomesticHref(item.url) ? "" : item.url);
+  const domestic = safeHref(item.cnUrl);
+  const links: { label: string; href: string }[] = [];
+
+  if (primary !== "#") {
+    links.push({ label: "打开原站", href: primary });
+  } else if (fallback !== "#") {
+    links.push({ label: "打开链接", href: fallback });
+  }
+
+  if (domestic !== "#" && !isKnownBrokenDomesticHref(domestic) && !links.some((link) => link.href === domestic)) {
+    links.push({ label: "国内入口", href: domestic });
+  }
+
+  return links;
 }
 
 export function App() {
@@ -636,7 +713,7 @@ export function App() {
             </div>
             <section className="detail-section">
               <h3>发生了什么</h3>
-              <p>{selectedHot.item.summary || "该热点正在榜单中升温，建议结合原站信息继续核实背景。"}</p>
+              <p>{getDetailSummary(selectedHot.board, selectedHot.item)}</p>
             </section>
             <section className="detail-section">
               <h3>为什么上榜</h3>
@@ -674,19 +751,11 @@ export function App() {
               </section>
             ) : null}
             <div className="detail-links">
-              <a href={safeHref(selectedHot.item.url)} rel="noreferrer" target="_blank">
-                打开链接
-              </a>
-              {selectedHot.item.cnUrl ? (
-                <a href={safeHref(selectedHot.item.cnUrl)} rel="noreferrer" target="_blank">
-                  国内入口
+              {getDetailLinks(selectedHot.item).map((link) => (
+                <a key={`${link.label}-${link.href}`} href={link.href} rel="noreferrer" target="_blank">
+                  {link.label}
                 </a>
-              ) : null}
-              {selectedHot.item.originalUrl ? (
-                <a href={safeHref(selectedHot.item.originalUrl)} rel="noreferrer" target="_blank">
-                  原站
-                </a>
-              ) : null}
+              ))}
             </div>
           </aside>
         </div>

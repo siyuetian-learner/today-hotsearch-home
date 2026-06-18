@@ -6,8 +6,10 @@ import {
   getSourceName,
   getSourceType,
   getStateTone,
+  isKnownBrokenDomesticHref,
   safeHref,
 } from "./config";
+import { getHotStatus } from "../utils/hotStatus";
 
 type Props = {
   board: HotPlatform;
@@ -40,23 +42,32 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
             const metric = getMetricText(board, item);
             const itemHref = safeHref(item.url || item.cnUrl);
             const originalHref = safeHref(item.originalUrl);
+            const hotStatus = getHotStatus(item);
+            const showDomesticLink = itemHref !== "#" && !isKnownBrokenDomesticHref(itemHref) && itemHref !== originalHref;
 
             return (
               <li className="hot-item" key={`${board.source}-${item.rank}-${item.title}`}>
                 <span className="rank">{String(item.rank || index + 1).padStart(2, "0")}</span>
                 <span className="topic">
-                  <button className="title-button" title={item.title} type="button" onClick={() => onSelectItem(board, item)}>
-                    {item.title}
-                  </button>
+                  <span className="topic-title-row">
+                    <button className="title-button" title={item.title} type="button" onClick={() => onSelectItem(board, item)}>
+                      {item.title}
+                    </button>
+                    <span className={`hot-status is-${hotStatus.tone}`}>{hotStatus.label}</span>
+                  </span>
                   {item.summary ? <small>{item.summary}</small> : null}
-                  {item.originalUrl && item.originalUrl !== item.url ? (
+                  {(showDomesticLink || originalHref !== "#") && item.originalUrl !== item.url ? (
                     <span className="access-links">
-                      <a href={itemHref} rel="noreferrer" target="_blank">
-                        国内入口
-                      </a>
-                      <a href={originalHref} rel="noreferrer" target="_blank">
-                        原站
-                      </a>
+                      {showDomesticLink ? (
+                        <a href={itemHref} rel="noreferrer" target="_blank">
+                          国内入口
+                        </a>
+                      ) : null}
+                      {originalHref !== "#" ? (
+                        <a href={originalHref} rel="noreferrer" target="_blank">
+                          原站
+                        </a>
+                      ) : null}
                     </span>
                   ) : null}
                 </span>

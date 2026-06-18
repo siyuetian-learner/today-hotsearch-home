@@ -109,6 +109,23 @@ export function safeHref(value?: string) {
   }
 }
 
+export function isKnownBrokenDomesticHref(value?: string) {
+  const href = safeHref(value);
+
+  if (href === "#") return false;
+
+  try {
+    const { hostname } = new URL(href);
+    return hostname === "kkgithub.com" || hostname.endsWith(".kkgithub.com");
+  } catch {
+    return false;
+  }
+}
+
+function localizeMetricWords(value: string, replacements: Record<string, string>) {
+  return Object.entries(replacements).reduce((text, [from, to]) => new RegExp(`\\b${from}\\b`, "gi").test(text) ? text.replace(new RegExp(`\\b${from}\\b`, "gi"), to) : text, value);
+}
+
 export function formatHeat(value: HotItem["heat"]) {
   if (typeof value === "number") {
     return `${value.toFixed(1)}万`;
@@ -142,10 +159,10 @@ export function getMetricText(board: HotPlatform, item: HotItem) {
 
   if (!heat) return "";
   if (["weibo", "baidu", "zhihu", "bilibili", "douyin", "toutiao"].includes(board.source)) return `热度 ${heat}`;
-  if (board.source === "github") return heat.replace(/\bstars\b/i, "stars");
-  if (board.source === "hackernews") return heat.replace(/\bpoints\b/i, "points").replace(/\bcomments\b/i, "comments");
+  if (board.source === "github") return localizeMetricWords(heat, { stars: "星标", star: "星标" });
+  if (board.source === "hackernews") return localizeMetricWords(heat, { points: "分", point: "分", comments: "评论", comment: "评论" });
   if (board.source === "huggingface") {
-    return heat.replace(/\blikes\b/i, "likes").replace(/\bdownloads\b/i, "downloads");
+    return localizeMetricWords(heat, { likes: "喜欢", like: "喜欢", downloads: "下载", download: "下载" });
   }
 
   return heat;

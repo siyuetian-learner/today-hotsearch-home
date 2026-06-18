@@ -1,6 +1,7 @@
 import type { RankedHot } from "../utils/insights";
 import type { HotItem, HotPlatform } from "../types/hot";
 import { getMetricText, getSourceName } from "./config";
+import { getHotStatus } from "../utils/hotStatus";
 
 type Props = {
   ranking: RankedHot[];
@@ -24,26 +25,33 @@ export function CompositePanel({ ranking, onSelectItem, onShare, shareState }: P
       </header>
 
       <ol className="composite-list">
-        {ranking.map((entry, index) => (
-          <li className="composite-item" key={`${entry.board.source}-${entry.item.rank}-${entry.item.title}`}>
-            <button type="button" onClick={() => onSelectItem(entry.board, entry.item)}>
-              <span className="composite-rank">{String(index + 1).padStart(2, "0")}</span>
-              <span className="composite-main">
-                <strong>{entry.item.title}</strong>
-                <span className="composite-summary">{entry.summary}</span>
-                <small>{entry.reason}</small>
-              </span>
-              <span
-                className="composite-score"
-                title="综合分 = 榜内排名基础分 + 热度对数分 + 多源相似信号加分 + 数据状态分。分数用于站内排序，不等同于平台原始热度。"
-              >
-                <strong>{entry.score}</strong>
-                <small>综合分</small>
-                <em>{entry.sourceCount > 1 ? `${entry.sourceCount} 源` : getSourceName(entry.board)}</em>
-              </span>
-            </button>
-          </li>
-        ))}
+        {ranking.map((entry, index) => {
+          const hotStatus = getHotStatus(entry.item, entry.score);
+
+          return (
+            <li className="composite-item" key={`${entry.board.source}-${entry.item.rank}-${entry.item.title}`}>
+              <button type="button" onClick={() => onSelectItem(entry.board, entry.item)}>
+                <span className="composite-rank">{String(index + 1).padStart(2, "0")}</span>
+                <span className="composite-main">
+                  <span className="composite-title-row">
+                    <strong>{entry.item.title}</strong>
+                    <span className={`hot-status is-${hotStatus.tone}`}>{hotStatus.label}</span>
+                  </span>
+                  <span className="composite-summary">{entry.summary}</span>
+                  <small>{entry.reason}</small>
+                </span>
+                <span
+                  className="composite-score"
+                  title="综合分 = 榜内排名基础分 + 热度对数分 + 多源相似信号加分 + 数据状态分。分数用于站内排序，不等同于平台原始热度。"
+                >
+                  <strong>{entry.score}</strong>
+                  <small>综合分</small>
+                  <em>{entry.sourceCount > 1 ? `${entry.sourceCount} 源` : getSourceName(entry.board)}</em>
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ol>
 
       <footer className="composite-foot">
