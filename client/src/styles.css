@@ -256,9 +256,12 @@ h1 {
 .home-settings,
 .archive-actions,
 .brief-panel,
+.feedback-panel,
 .scene-panel,
 .composite-panel,
 .source-status-panel,
+.trend-panel,
+.watch-panel,
 .reader-list,
 .lead-panel,
 .radar-panel,
@@ -378,6 +381,213 @@ h1 {
 
 .archive-actions > span {
   padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.trend-panel,
+.watch-panel,
+.feedback-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.trend-panel header,
+.watch-panel header,
+.feedback-panel header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.trend-panel h2,
+.watch-panel h2,
+.feedback-panel h2 {
+  margin: 0;
+  font-size: clamp(25px, 2.8vw, 36px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.trend-panel p,
+.watch-panel p,
+.feedback-panel p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.trend-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.trend-list button {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  min-height: 104px;
+  padding: 13px 0;
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.trend-list span {
+  justify-self: start;
+  padding: 3px 8px;
+  color: var(--green);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.trend-list strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.trend-list small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.watch-form input,
+.feedback-grid input,
+.feedback-grid textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-cool);
+  color: var(--ink);
+  outline: none;
+}
+
+.watch-form input,
+.feedback-grid input {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.watch-form input:focus,
+.feedback-grid input:focus,
+.feedback-grid textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(36, 89, 214, 0.14);
+}
+
+.watch-form button,
+.feedback-panel footer button {
+  min-height: 42px;
+  padding: 0 14px;
+  color: var(--panel);
+  cursor: pointer;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.watch-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.watch-tags p {
+  margin: 0;
+}
+
+.watch-tag {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-cool);
+}
+
+.watch-tag button {
+  min-height: 34px;
+  padding: 0 10px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+
+.watch-tag button:first-child {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 800;
+}
+
+.watch-tag button:last-child {
+  color: var(--muted);
+  border-left: 1px solid var(--line);
+}
+
+.watch-tag em {
+  color: var(--green);
+  font-style: normal;
+  font-family: "SF Mono", Consolas, monospace;
+}
+
+.feedback-panel {
+  margin-bottom: 18px;
+}
+
+.feedback-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.feedback-grid label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.feedback-grid textarea {
+  min-height: 88px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+.feedback-panel footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding-top: 14px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -1324,6 +1534,13 @@ h1 {
 
   .scene-panel {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .product-grid,
+  .trend-list,
+  .feedback-grid,
+  .watch-form {
+    grid-template-columns: 1fr;
   }
 
   .brief-head,

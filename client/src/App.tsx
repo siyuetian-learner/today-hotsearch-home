@@ -3,6 +3,7 @@ import { fetchAllHot, fetchArchive, fetchHotPlatform } from "./api/hot";
 import { BriefPanel } from "./components/BriefPanel";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { CompositePanel } from "./components/CompositePanel";
+import { FeedbackPanel } from "./components/FeedbackPanel";
 import {
   categorySources,
   formatRelativeTime,
@@ -17,6 +18,8 @@ import { FocusPanel } from "./components/FocusPanel";
 import { Footer } from "./components/Footer";
 import { HotCard } from "./components/HotCard";
 import { SourceStatusPanel } from "./components/SourceStatusPanel";
+import { TrendPanel } from "./components/TrendPanel";
+import { WatchPanel } from "./components/WatchPanel";
 import { fallbackHotResponse } from "./data/fallbackHot";
 import type { HotItem, HotPlatform, SourceStatus } from "./types/hot";
 import { buildCompositeRanking, buildLeadCategories, buildShareDigest } from "./utils/insights";
@@ -45,6 +48,24 @@ function readStoredSet(key: string) {
     return new Set<string>(JSON.parse(window.localStorage.getItem(key) || "[]"));
   } catch {
     return new Set<string>();
+  }
+}
+
+function readStoredArray(key: string) {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStoredListLength(key: string) {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value.length : 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -129,6 +150,11 @@ export function App() {
   const [archiveMessage, setArchiveMessage] = useState("");
   const [archivePersistent, setArchivePersistent] = useState<boolean | undefined>(undefined);
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(() => readStoredSet("hotsearch.hiddenSources"));
+  const [watchKeywords, setWatchKeywords] = useState<string[]>(() => readStoredArray("hotsearch.watchKeywords"));
+  const [watchDraft, setWatchDraft] = useState("");
+  const [sourceDraft, setSourceDraft] = useState("");
+  const [feedbackDraft, setFeedbackDraft] = useState("");
+  const [savedFeedbackCount, setSavedFeedbackCount] = useState(() => readStoredListLength("hotsearch.feedback"));
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [selectedHot, setSelectedHot] = useState<SelectedHot>(null);
   const [loading, setLoading] = useState(true);
@@ -160,6 +186,17 @@ export function App() {
   const compositeRanking = useMemo(() => buildCompositeRanking(visibleBoards, 20), [visibleBoards]);
 
   const relatedItems = useMemo(() => findRelated(selectedHot, orderedBoards), [orderedBoards, selectedHot]);
+
+  const watchMatches = useMemo(() => {
+    return watchKeywords.map((watchKeyword) => {
+      const target = normalizeTitle(watchKeyword);
+      const count = orderedBoards.reduce((sum, board) => {
+        return sum + board.items.filter((item) => normalizeTitle(item.title).includes(target)).length;
+      }, 0);
+
+      return { keyword: watchKeyword, count };
+    });
+  }, [orderedBoards, watchKeywords]);
 
   const resultStatus = useMemo(() => {
     if (loading) return "正在加载数据...";
@@ -320,6 +357,56 @@ export function App() {
     setViewMode("cards");
   }
 
+  function addWatchKeyword() {
+    const nextKeyword = watchDraft.trim();
+    if (!nextKeyword) return;
+
+    setWatchKeywords((current) => {
+      if (current.some((item) => item.toLowerCase() === nextKeyword.toLowerCase())) return current;
+      return [...current, nextKeyword].slice(0, 10);
+    });
+    setWatchDraft("");
+  }
+
+  function removeWatchKeyword(value: string) {
+    setWatchKeywords((current) => current.filter((item) => item !== value));
+  }
+
+  function applyWatchKeyword(value: string) {
+    setPendingKeyword(value);
+    setKeyword(value);
+    setActiveCategory("all");
+    setViewMode("cards");
+    loadBoards({ q: value });
+  }
+
+  function submitFeedback() {
+    const source = sourceDraft.trim();
+    const feedback = feedbackDraft.trim();
+    if (!source && !feedback) return;
+
+    const current = (() => {
+      try {
+        return JSON.parse(window.localStorage.getItem("hotsearch.feedback") || "[]");
+      } catch {
+        return [];
+      }
+    })();
+    const next = [
+      {
+        source,
+        feedback,
+        createdAt: new Date().toISOString(),
+      },
+      ...(Array.isArray(current) ? current : []),
+    ].slice(0, 30);
+
+    window.localStorage.setItem("hotsearch.feedback", JSON.stringify(next));
+    setSavedFeedbackCount(next.length);
+    setSourceDraft("");
+    setFeedbackDraft("");
+  }
+
   useEffect(() => {
     loadBoards();
     loadArchive("today");
@@ -336,6 +423,10 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("hotsearch.hiddenSources", JSON.stringify(Array.from(hiddenSources)));
   }, [hiddenSources]);
+
+  useEffect(() => {
+    window.localStorage.setItem("hotsearch.watchKeywords", JSON.stringify(watchKeywords));
+  }, [watchKeywords]);
 
   useEffect(() => {
     if (!selectedHot) return undefined;
@@ -431,6 +522,21 @@ export function App() {
           />
         ) : null}
 
+        {!loading ? (
+          <section className="product-grid" aria-label="产品工具">
+            <TrendPanel ranking={compositeRanking} onSelectItem={(entry) => setSelectedHot({ board: entry.board, item: entry.item })} />
+            <WatchPanel
+              draft={watchDraft}
+              keywords={watchKeywords}
+              matches={watchMatches}
+              onAdd={addWatchKeyword}
+              onApply={applyWatchKeyword}
+              onDraftChange={setWatchDraft}
+              onRemove={removeWatchKeyword}
+            />
+          </section>
+        ) : null}
+
         <details className="home-settings">
           <summary>我的首页</summary>
           <div className="source-toggles">
@@ -481,6 +587,14 @@ export function App() {
             <FocusPanel boards={visibleBoards} leads={leadCategories} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <CompositePanel ranking={compositeRanking} shareState={shareState} onShare={shareDigest} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <SourceStatusPanel boards={visibleBoards} statuses={statuses} />
+            <FeedbackPanel
+              feedbackDraft={feedbackDraft}
+              savedCount={savedFeedbackCount}
+              sourceDraft={sourceDraft}
+              onFeedbackChange={setFeedbackDraft}
+              onSourceChange={setSourceDraft}
+              onSubmit={submitFeedback}
+            />
             <section className="boards" aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard
