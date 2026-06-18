@@ -234,23 +234,27 @@ function getReason(board: HotPlatform, item: HotItem, sourceCount: number) {
 }
 
 function getLeadDescription(code: string, top: RankedHot) {
+  const sourceName = getSourceName(top.board);
+  const metric = getMetricText(top.board, top.item);
+  const signal = metric ? `${sourceName}第 ${top.item.rank || "-"} 名，${metric}` : `${sourceName}第 ${top.item.rank || "-"} 名`;
+
   if (code === "AI") {
-    return `AI 工具和模型正在进入真实工作流。${top.summary}`;
+    return `AI 工具、模型和开源项目仍是今天的主要增量。当前信号来自${signal}，适合优先判断是否影响工作流和工具选型。`;
   }
 
   if (code === "NEWS") {
-    return `公共事件、民生和社会议题正在形成今天的讨论背景。${top.summary}`;
+    return `公共事件、民生服务和搜索趋势构成今天的新闻背景。当前信号来自${signal}，适合快速了解大众关注点。`;
   }
 
   if (code === "SOCIAL") {
-    return `社交与视频平台正在放大大众情绪和内容选题。${top.summary}`;
+    return `社交与视频平台正在放大大众情绪和内容选题。当前信号来自${signal}，适合判断传播热度和内容方向。`;
   }
 
   if (code === "TECH") {
-    return `科技和开发者社区更关注工具效率、开源项目和产品机会。${top.summary}`;
+    return `科技和开发者社区更关注工具效率、产品采购和开源实践。当前信号来自${signal}，适合继续做技术跟进。`;
   }
 
-  return top.summary;
+  return `${sourceName}出现新的高热信号，适合继续打开详情确认背景和影响。`;
 }
 
 export function buildCompositeRanking(boards: HotPlatform[], limit = 20): RankedHot[] {

@@ -1326,15 +1326,15 @@ h1 {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  height: 22px;
-  padding: 0 7px;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
   color: var(--muted);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-pill);
-  background: var(--panel);
+  border: 0;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.06);
   font-family: "SF Mono", Consolas, monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
@@ -1342,23 +1342,22 @@ h1 {
 
 .hot-status.is-new {
   color: var(--blue);
-  background: rgba(36, 89, 214, 0.08);
+  background: rgba(36, 89, 214, 0.1);
 }
 
 .hot-status.is-hot {
   color: var(--red);
-  background: rgba(213, 58, 47, 0.08);
+  background: rgba(213, 58, 47, 0.1);
 }
 
 .hot-status.is-boiling {
   color: var(--panel);
-  border-color: var(--red);
   background: var(--red);
 }
 
 .hot-status.is-up {
   color: var(--green);
-  background: rgba(12, 155, 116, 0.08);
+  background: rgba(12, 155, 116, 0.1);
 }
 
 .hot-status.is-watch {
