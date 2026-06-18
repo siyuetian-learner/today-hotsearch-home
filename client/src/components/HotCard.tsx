@@ -1,12 +1,15 @@
+import type { CSSProperties } from "react";
 import type { HotItem, HotPlatform } from "../types/hot";
 import {
   formatRelativeTime,
   getListName,
   getMetricText,
+  getSourceMark,
   getSourceName,
   getSourceType,
   getStateTone,
   isKnownBrokenDomesticHref,
+  platformColors,
   safeHref,
 } from "./config";
 import { getHotStatus } from "../utils/hotStatus";
@@ -23,13 +26,23 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
   const items = board.items || [];
   const visibleItems = expanded ? items : items.slice(0, 5);
   const hasLongMetrics = ["huggingface", "github", "hackernews", "aihot"].includes(board.source);
+  const sourceColor = platformColors[board.source] || "#111827";
 
   return (
-    <article className={`board ${hasLongMetrics ? "has-long-metrics" : ""}`} data-source={board.source}>
+    <article
+      className={`board ${hasLongMetrics ? "has-long-metrics" : ""}`}
+      data-source={board.source}
+      style={{ "--source-color": sourceColor } as CSSProperties}
+    >
       <header className="board-head">
         <div className="board-title">
-          <h2>{getSourceName(board)}</h2>
-          <p>{getListName(board)}</p>
+          <span className="source-mark" aria-hidden="true">
+            {getSourceMark(board)}
+          </span>
+          <div>
+            <h2>{getSourceName(board)}</h2>
+            <p>{getListName(board)}</p>
+          </div>
         </div>
         <span className={`state ${getStateTone(board)}`}>{getSourceType(board)}</span>
       </header>

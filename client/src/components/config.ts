@@ -15,6 +15,21 @@ export const platformColors: Record<string, string> = {
   hackernews: "#d98a15",
 };
 
+export const platformMarks: Record<string, string> = {
+  weibo: "微",
+  baidu: "百",
+  zhihu: "知",
+  bilibili: "B",
+  douyin: "抖",
+  toutiao: "头",
+  "36kr": "36",
+  ithome: "IT",
+  huggingface: "HF",
+  aihot: "AI",
+  github: "GH",
+  hackernews: "HN",
+};
+
 export const categorySources: Record<string, string[]> = {
   all: [
     "weibo",
@@ -67,6 +82,10 @@ export const sourceOrder = categorySources.all;
 
 export function getSourceName(board: HotPlatform) {
   return sourceLabels[board.source]?.name || board.sourceName || board.source;
+}
+
+export function getSourceMark(board: HotPlatform) {
+  return platformMarks[board.source] || getSourceName(board).slice(0, 2).toUpperCase();
 }
 
 export function getListName(board: HotPlatform) {

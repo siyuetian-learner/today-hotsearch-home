@@ -1190,9 +1190,11 @@ h1 {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  --source-color: var(--ink);
 }
 
 .board-head {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -1203,8 +1205,36 @@ h1 {
   background: var(--panel-cool);
 }
 
+.board-head::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  content: "";
+  background: var(--source-color);
+}
+
 .board-title {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
   min-width: 0;
+}
+
+.source-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: var(--panel);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--source-color);
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
 .board-title h2 {
@@ -1279,7 +1309,7 @@ h1 {
 }
 
 .hot-item:nth-child(-n + 3) .rank {
-  color: var(--red);
+  color: var(--source-color);
   font-weight: 800;
 }
 
