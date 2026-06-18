@@ -1,4 +1,5 @@
 const { fetchJsonWithRetry } = require("./http");
+const { buildSourceUrl } = require("../utils/source-links");
 
 const defaultBaseUrl = process.env.DAILY_HOT_API_BASE || "https://api-hot.imsyy.top";
 
@@ -147,13 +148,13 @@ function normalizeItem(raw, index, config) {
   };
 }
 
-function fallbackItems(config, q) {
+function fallbackItems(config, q, source) {
   const keyword = q.trim().toLowerCase();
   const rows = config.fallback
     .map(([title, heat, summary], index) => ({
       rank: index + 1,
       title,
-      url: "#",
+      url: buildSourceUrl(source, title),
       heat,
       summary,
       sourceType: config.sourceType,
@@ -196,7 +197,7 @@ async function fetchDailyHot(source, { q = "" } = {}) {
   } catch (error) {
     degraded = true;
     message = `${config.sourceName}公开接口暂不可用，已切换为内置离线快照。`;
-    items = fallbackItems(config, q);
+    items = fallbackItems(config, q, source);
   }
 
   const keyword = q.trim().toLowerCase();

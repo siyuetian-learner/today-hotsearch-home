@@ -2,6 +2,24 @@ import type { HotPlatform } from "../types/hot";
 
 const updatedAt = new Date().toISOString();
 
+function buildFallbackUrl(source: string, title: string) {
+  const keyword = encodeURIComponent(title);
+  const searchMap: Record<string, string> = {
+    weibo: `https://s.weibo.com/weibo?q=${keyword}`,
+    baidu: `https://www.baidu.com/s?wd=${keyword}`,
+    zhihu: `https://www.zhihu.com/search?q=${keyword}`,
+    bilibili: `https://search.bilibili.com/all?keyword=${keyword}`,
+    douyin: `https://www.douyin.com/search/${keyword}`,
+    toutiao: `https://www.toutiao.com/search/?keyword=${keyword}`,
+    "36kr": `https://www.36kr.com/search/articles/${keyword}`,
+    ithome: `https://www.ithome.com/search/?q=${keyword}`,
+    aihot: `https://aihot.virxact.com/?q=${keyword}`,
+    hackernews: `https://hn.algolia.com/?q=${keyword}`,
+  };
+
+  return searchMap[source] || "#";
+}
+
 function item(rank: number, title: string, heat: string, summary = "", url = "#") {
   return { rank, title, heat, summary, url };
 }
@@ -257,6 +275,17 @@ export const fallbackHotResponse = {
     },
   ] satisfies HotPlatform[],
 };
+
+fallbackHotResponse.platforms.forEach((platform) => {
+  platform.items = platform.items.map((hotItem) => {
+    if (hotItem.url && hotItem.url !== "#") return hotItem;
+
+    return {
+      ...hotItem,
+      url: buildFallbackUrl(platform.source, hotItem.title),
+    };
+  });
+});
 
 function model(rank: number, repoId: string, heat: string, summary = "") {
   return {

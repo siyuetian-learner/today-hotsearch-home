@@ -3,6 +3,7 @@ const fs = require("fs");
 const cors = require("cors");
 const express = require("express");
 const { getCache, setCache } = require("./utils/cache");
+const { ensurePlatformLinks } = require("./utils/source-links");
 const { fetchAihot } = require("./services/aihot");
 const { fetchBilibiliHot } = require("./services/bilibili");
 const { fetchGithub } = require("./services/github");
@@ -135,15 +136,16 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
         durationMs: 0,
       });
 
-      return attachSourceStrategy(source, cachedPlatform);
+      return attachSourceStrategy(source, ensurePlatformLinks(cachedPlatform));
     }
   }
 
   console.log(`[fetch] ${cacheKey}`);
   const data = await handler({ q });
+  const linkedData = ensurePlatformLinks(data);
   const platform = attachSourceStrategy(source, {
-    ...data,
-    dataState: data.dataState || (data.degraded ? "offline" : "live"),
+    ...linkedData,
+    dataState: linkedData.dataState || (linkedData.degraded ? "offline" : "live"),
     fetchDurationMs: Date.now() - startedAt,
   });
   setCache(cacheKey, platform, ttlSec);
@@ -168,7 +170,7 @@ async function safeLoadSource(source, options) {
     const snapshot = getLatestSnapshot(source);
 
     if (snapshot) {
-      return attachSourceStrategy(source, snapshot);
+      return attachSourceStrategy(source, ensurePlatformLinks(snapshot));
     }
 
     return attachSourceStrategy(source, {
@@ -213,7 +215,7 @@ app.get("/api/hot/:source", async (req, res) => {
       const snapshot = getLatestSnapshot(source);
 
       if (snapshot) {
-        res.json(attachSourceStrategy(source, snapshot));
+        res.json(attachSourceStrategy(source, ensurePlatformLinks(snapshot)));
         return;
       }
     }
