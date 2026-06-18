@@ -586,15 +586,6 @@ export function App() {
           <>
             <FocusPanel boards={visibleBoards} leads={leadCategories} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <CompositePanel ranking={compositeRanking} shareState={shareState} onShare={shareDigest} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
-            <SourceStatusPanel boards={visibleBoards} statuses={statuses} />
-            <FeedbackPanel
-              feedbackDraft={feedbackDraft}
-              savedCount={savedFeedbackCount}
-              sourceDraft={sourceDraft}
-              onFeedbackChange={setFeedbackDraft}
-              onSourceChange={setSourceDraft}
-              onSubmit={submitFeedback}
-            />
             <section className="boards" aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard
@@ -607,6 +598,15 @@ export function App() {
                 />
               ))}
             </section>
+            <SourceStatusPanel boards={visibleBoards} statuses={statuses} />
+            <FeedbackPanel
+              feedbackDraft={feedbackDraft}
+              savedCount={savedFeedbackCount}
+              sourceDraft={sourceDraft}
+              onFeedbackChange={setFeedbackDraft}
+              onSourceChange={setSourceDraft}
+              onSubmit={submitFeedback}
+            />
           </>
         )}
       </main>
