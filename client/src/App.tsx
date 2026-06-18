@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAllHot, fetchArchive, fetchHotPlatform } from "./api/hot";
+import { BriefPanel } from "./components/BriefPanel";
 import { CategoryTabs } from "./components/CategoryTabs";
 import { CompositePanel } from "./components/CompositePanel";
 import {
@@ -15,6 +16,7 @@ import {
 import { FocusPanel } from "./components/FocusPanel";
 import { Footer } from "./components/Footer";
 import { HotCard } from "./components/HotCard";
+import { SourceStatusPanel } from "./components/SourceStatusPanel";
 import { fallbackHotResponse } from "./data/fallbackHot";
 import type { HotItem, HotPlatform, SourceStatus } from "./types/hot";
 import { buildCompositeRanking, buildLeadCategories, buildShareDigest } from "./utils/insights";
@@ -418,6 +420,17 @@ export function App() {
           ) : null}
         </section>
 
+        {!loading ? (
+          <BriefPanel
+            leads={leadCategories}
+            ranking={compositeRanking}
+            shareState={shareState}
+            statuses={statuses}
+            onSelectItem={(entry) => setSelectedHot({ board: entry.board, item: entry.item })}
+            onShare={shareDigest}
+          />
+        ) : null}
+
         <details className="home-settings">
           <summary>我的首页</summary>
           <div className="source-toggles">
@@ -467,6 +480,7 @@ export function App() {
           <>
             <FocusPanel boards={visibleBoards} leads={leadCategories} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <CompositePanel ranking={compositeRanking} shareState={shareState} onShare={shareDigest} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
+            <SourceStatusPanel boards={visibleBoards} statuses={statuses} />
             <section className="boards" aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard

@@ -255,8 +255,10 @@ h1 {
 .data-strip,
 .home-settings,
 .archive-actions,
+.brief-panel,
 .scene-panel,
 .composite-panel,
+.source-status-panel,
 .reader-list,
 .lead-panel,
 .radar-panel,
@@ -385,6 +387,134 @@ h1 {
   grid-template-columns: 1.04fr 0.96fr;
   gap: 18px;
   margin-bottom: 18px;
+}
+
+.brief-panel {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.brief-head {
+  display: flex;
+  gap: 16px;
+  align-items: start;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.brief-head h2,
+.source-status-panel h2 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.brief-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
+  gap: 18px;
+  padding-top: 16px;
+}
+
+.brief-primary {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-cool);
+}
+
+.brief-primary span {
+  color: var(--green);
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brief-primary h3 {
+  display: -webkit-box;
+  margin: 12px 0 10px;
+  overflow: hidden;
+  font-size: clamp(24px, 3.2vw, 38px);
+  line-height: 1.08;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.brief-primary p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  line-height: 1.65;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.brief-points {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brief-points button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px 0;
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.brief-points span {
+  color: var(--red);
+  font-family: "SF Mono", Consolas, monospace;
+  font-weight: 800;
+}
+
+.brief-points strong,
+.brief-points small {
+  min-width: 0;
+}
+
+.brief-points strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.brief-points small {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brief-health {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.brief-health span {
+  padding: 7px 10px;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
 }
 
 .composite-panel {
@@ -520,6 +650,73 @@ h1 {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.source-status-panel {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.source-status-panel header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.source-status-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.source-status-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-cool);
+}
+
+.source-status-card strong,
+.source-status-card span,
+.source-status-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-status-card strong {
+  font-size: 14px;
+}
+
+.source-status-card span {
+  justify-self: start;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.source-status-card small {
+  color: var(--muted);
+}
+
+.source-status-card.is-live span {
+  color: var(--green);
+}
+
+.source-status-card.is-cache span {
+  color: var(--blue);
+}
+
+.source-status-card.is-degraded span {
+  color: var(--orange);
+}
+
+.source-status-card.is-failed span {
+  color: var(--red);
 }
 
 .lead-panel {
@@ -1129,6 +1326,19 @@ h1 {
     grid-template-columns: 1fr 1fr;
   }
 
+  .brief-head,
+  .brief-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brief-head {
+    display: grid;
+  }
+
+  .brief-points small {
+    white-space: normal;
+  }
+
   .data-strip {
     max-height: 138px;
     overflow: auto;
@@ -1150,6 +1360,10 @@ h1 {
 
   .composite-foot {
     display: grid;
+  }
+
+  .source-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .search-box {
