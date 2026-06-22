@@ -49,8 +49,10 @@ git push -u origin main
   - `GITHUB_CN_BASE=`（没有稳定可用镜像时保持为空）
   - `GITHUB_TOKEN=`（可选，用于提高 GitHub API 限额）
   - `ZHIHU_HOT_API=https://api-hot.imsyy.top/zhihu`
+  - `ZHIHU_HOT_APIS=https://hot.baiwumm.com/api/zhihu,https://api-hot.imsyy.top/zhihu`
   - `ZHIHU_HOT_PAGE=https://www.zhihu.com/billboard`
   - `DAILY_HOT_API_BASE=https://api-hot.imsyy.top`
+  - `DAILY_HOT_API_BASES=https://api-hot.imsyy.top`
   - `ARCHIVE_DAYS=7`
   - `ARCHIVE_TIMEZONE_OFFSET=8`
 

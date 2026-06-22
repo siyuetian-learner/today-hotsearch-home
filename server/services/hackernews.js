@@ -76,6 +76,7 @@ async function fetchHackerNews({ q = "" } = {}) {
   let stories = [];
   let degraded = false;
   let message;
+  let accessMode = "Hacker News Firebase API";
 
   try {
     const ids = await fetchJsonWithRetry(`${apiBase}/topstories.json`, { timeoutMs: 6000, retries: 1 });
@@ -98,6 +99,34 @@ async function fetchHackerNews({ q = "" } = {}) {
     message = "Hacker News 官方 API 暂不可用，已切换为内置离线快照。";
   }
 
+  if (degraded || stories.length < 10) {
+    try {
+      const data = await fetchJsonWithRetry("https://hn.algolia.com/api/v1/search?tags=front_page", {
+        timeoutMs: 8000,
+        retries: 1,
+      });
+      const algoliaStories = (Array.isArray(data?.hits) ? data.hits : [])
+        .map((hit) => ({
+          id: hit.objectID,
+          title: hit.title || hit.story_title,
+          url: hit.url || hit.story_url,
+          score: hit.points,
+          descendants: hit.num_comments,
+          type: "story",
+        }))
+        .filter((item) => item.title);
+
+      if (algoliaStories.length > stories.length) {
+        stories = algoliaStories;
+        degraded = false;
+        message = undefined;
+        accessMode = "Hacker News Algolia Front Page API";
+      }
+    } catch {
+      degraded = true;
+    }
+  }
+
   if (degraded) {
     return {
       source: "hackernews",
@@ -109,6 +138,7 @@ async function fetchHackerNews({ q = "" } = {}) {
       dataState: "offline",
       sample: true,
       message,
+      accessMode: "内置离线样例",
     };
   }
 
@@ -142,6 +172,7 @@ async function fetchHackerNews({ q = "" } = {}) {
     updatedAt: new Date().toISOString(),
     items,
     dataState: "live",
+    accessMode,
   };
 }
 

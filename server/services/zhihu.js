@@ -117,20 +117,35 @@ async function fetchZhihuHotPage() {
 }
 
 async function fetchZhihuHot({ q = "" } = {}) {
-  const api = process.env.ZHIHU_HOT_API || "https://api-hot.imsyy.top/zhihu";
+  const apis = [
+    ...String(process.env.ZHIHU_HOT_APIS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    process.env.ZHIHU_HOT_API || "https://api-hot.imsyy.top/zhihu",
+    "https://hot.baiwumm.com/api/zhihu",
+  ].filter((value, index, list) => value && list.indexOf(value) === index);
   let list = [];
   let degraded = false;
   let message;
   let accessMode = "第三方聚合接口";
   let sample = false;
 
-  try {
-    const data = await fetchJson(api);
-    list = normalizeFromUnknown(data);
-    if (!list.length) {
-      throw new Error("empty zhihu hot list");
+  for (const api of apis) {
+    try {
+      const data = await fetchJson(api);
+      list = normalizeFromUnknown(data);
+      if (!list.length) {
+        throw new Error("empty zhihu hot list");
+      }
+      accessMode = api.includes("baiwumm") ? "知乎公开聚合 JSON" : "第三方聚合接口";
+      break;
+    } catch {
+      list = [];
     }
-  } catch (error) {
+  }
+
+  if (!list.length) {
     try {
       list = await fetchZhihuHotPage();
       degraded = true;

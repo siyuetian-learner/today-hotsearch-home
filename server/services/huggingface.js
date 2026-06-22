@@ -116,6 +116,7 @@ function normalizeRepo(repo, index, sample = false) {
 async function fetchHuggingFace({ q = "" } = {}) {
   let trending = [];
   let fallback = false;
+  let accessMode = "Hugging Face Trending API";
 
   try {
     const data = await fetchJson("https://huggingface.co/api/trending");
@@ -123,8 +124,17 @@ async function fetchHuggingFace({ q = "" } = {}) {
       .map((entry) => entry.repoData || entry)
       .filter((repo) => repo && (repo.id || repo.name));
   } catch (error) {
-    fallback = true;
-    trending = fallbackModels;
+    try {
+      const data = await fetchJson("https://hf-mirror.com/api/trending", { timeoutMs: 10000 });
+      trending = (data.recentlyTrending || [])
+        .map((entry) => entry.repoData || entry)
+        .filter((repo) => repo && (repo.id || repo.name));
+      accessMode = "Hugging Face 国内镜像 Trending API";
+    } catch {
+      fallback = true;
+      trending = fallbackModels;
+      accessMode = "内置模型示例";
+    }
   }
 
   const filtered = q
@@ -139,8 +149,9 @@ async function fetchHuggingFace({ q = "" } = {}) {
     items: filtered.slice(0, 10).map((repo, index) => normalizeRepo(repo, index, fallback)),
     degraded: fallback,
     dataState: fallback ? "offline" : "live",
+    accessMode,
     sample: fallback,
-    message: fallback ? "Hugging Face 直连失败，已切换为国内入口推荐列表。" : undefined,
+    message: fallback ? "Hugging Face 直连和镜像接口均不可用，已切换为内置模型示例。" : undefined,
   };
 }
 

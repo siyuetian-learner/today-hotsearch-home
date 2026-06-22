@@ -1,7 +1,14 @@
-const { fetchJsonWithRetry } = require("./http");
+const { fetchJson, fetchJsonWithRetry, fetchText } = require("./http");
 const { buildSourceUrl } = require("../utils/source-links");
 
 const defaultBaseUrl = process.env.DAILY_HOT_API_BASE || "https://api-hot.imsyy.top";
+const dailyHotBaseUrls = [
+  ...String(process.env.DAILY_HOT_API_BASES || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+  defaultBaseUrl,
+].filter((value, index, list) => value && list.indexOf(value) === index);
 
 const sourceConfig = {
   baidu: {
@@ -148,6 +155,172 @@ function normalizeItem(raw, index, config) {
   };
 }
 
+function decodeHtml(value = "") {
+  return String(value)
+    .replace(/<!\[CDATA\[/g, "")
+    .replace(/\]\]>/g, "")
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x2F;/g, "/");
+}
+
+function stripTags(value = "") {
+  return decodeHtml(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncate(value = "", max = 96) {
+  const text = String(value).trim();
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+function parseBaiduHot(html) {
+  const match = html.match(/<!--s-data:([\s\S]*?)-->/);
+  if (!match?.[1]) throw new Error("empty baidu s-data");
+
+  const payload = JSON.parse(match[1]);
+  const cards = payload?.data?.cards || [];
+  const hotList = cards.find((card) => Array.isArray(card.content))?.content || [];
+
+  return hotList.map((item, index) => ({
+    rank: index + 1,
+    title: item.query || item.word || `百度热点 ${index + 1}`,
+    url: item.rawUrl || item.url || item.appUrl || buildSourceUrl("baidu", item.query || item.word || ""),
+    heat: item.hotScore ? `实时热度 ${item.hotScore}` : "热度更新中",
+    summary: truncate(item.desc || ""),
+    sourceType: sourceConfig.baidu.sourceType,
+  }));
+}
+
+async function fetchBaiduDirect() {
+  const html = await fetchText("https://top.baidu.com/board?tab=realtime", { timeoutMs: 10000 });
+  const items = parseBaiduHot(html);
+  if (!items.length) throw new Error("empty baidu hot list");
+  return { items, accessMode: "百度热榜公开页面解析" };
+}
+
+function normalizeDouyinLabel(label) {
+  if (label === 3) return "热";
+  if (label === 1) return "新";
+  if (label === 8) return "首发";
+  return "";
+}
+
+async function fetchDouyinDirect() {
+  const data = await fetchJson("https://www.douyin.com/aweme/v1/web/hot/search/list/?device_platform=webapp&aid=6383&channel=channel_pc_web", {
+    timeoutMs: 10000,
+    headers: {
+      referer: "https://www.douyin.com/hot",
+    },
+  });
+  const list = data?.data?.word_list || data?.word_list || [];
+  if (!Array.isArray(list) || !list.length) throw new Error("empty douyin hot list");
+
+  return {
+    accessMode: "抖音热榜公开 JSON",
+    items: list.map((item, index) => {
+      const title = item.word || item.sentence || `抖音热点 ${index + 1}`;
+      return {
+        rank: Number(item.position || index + 1),
+        title,
+        url: `https://www.douyin.com/search/${encodeURIComponent(title)}`,
+        heat: item.hot_value ? `热度 ${item.hot_value}` : "热度更新中",
+        summary: normalizeDouyinLabel(item.label),
+        sourceType: sourceConfig.douyin.sourceType,
+      };
+    }),
+  };
+}
+
+async function fetchToutiaoDirect() {
+  const data = await fetchJson("https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc", { timeoutMs: 10000 });
+  const list = Array.isArray(data?.data) ? data.data : [];
+  if (!list.length) throw new Error("empty toutiao hot list");
+
+  return {
+    accessMode: "今日头条热榜公开 JSON",
+    items: list.map((item, index) => ({
+      rank: index + 1,
+      title: item.Title || item.QueryWord || `头条热点 ${index + 1}`,
+      url: item.Url || buildSourceUrl("toutiao", item.Title || item.QueryWord || ""),
+      heat: item.HotValue ? `热度 ${item.HotValue}` : "热度更新中",
+      summary: item.LabelDesc || item.InterestCategory || "",
+      sourceType: sourceConfig.toutiao.sourceType,
+    })),
+  };
+}
+
+async function fetch36krDirect() {
+  const html = await fetchText("https://www.36kr.com/newsflashes", { timeoutMs: 10000 });
+  const matches = [...html.matchAll(/<a[^>]+href=["'](\/newsflashes\/[^"']+)["'][^>]*>([^<]{6,160})<\/a>/g)];
+  const seen = new Set();
+  const items = matches
+    .map((match) => ({
+      title: stripTags(match[2]),
+      url: `https://www.36kr.com${match[1]}`,
+    }))
+    .filter((item) => {
+      if (!item.title || seen.has(item.title)) return false;
+      seen.add(item.title);
+      return true;
+    })
+    .map((item, index) => ({
+      rank: index + 1,
+      title: item.title,
+      url: item.url,
+      heat: "实时快讯",
+      summary: "36氪最新商业与科技快讯",
+      sourceType: sourceConfig["36kr"].sourceType,
+    }));
+
+  if (!items.length) throw new Error("empty 36kr newsflash list");
+  return { items, accessMode: "36氪快讯公开页面解析" };
+}
+
+function pickXmlValue(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? stripTags(match[1]) : "";
+}
+
+async function fetchIthomeDirect() {
+  const xml = await fetchText("https://www.ithome.com/rss/", { timeoutMs: 10000 });
+  const matches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
+  const items = matches.map((match, index) => {
+    const itemXml = match[1];
+    const title = pickXmlValue(itemXml, "title");
+    const link = pickXmlValue(itemXml, "link");
+    const description = pickXmlValue(itemXml, "description");
+    return {
+      rank: index + 1,
+      title: title || `IT之家资讯 ${index + 1}`,
+      url: link || buildSourceUrl("ithome", title),
+      heat: "最新资讯",
+      summary: truncate(description, 100),
+      sourceType: sourceConfig.ithome.sourceType,
+    };
+  });
+
+  if (!items.length) throw new Error("empty ithome rss list");
+  return { items, accessMode: "IT之家 RSS" };
+}
+
+const directFetchers = {
+  baidu: fetchBaiduDirect,
+  douyin: fetchDouyinDirect,
+  toutiao: fetchToutiaoDirect,
+  "36kr": fetch36krDirect,
+  ithome: fetchIthomeDirect,
+};
+
 function fallbackItems(config, q, source) {
   const keyword = q.trim().toLowerCase();
   const rows = config.fallback
@@ -190,14 +363,38 @@ async function fetchDailyHot(source, { q = "" } = {}) {
   let items = [];
   let degraded = false;
   let message;
+  let accessMode;
+  const errors = [];
 
   try {
-    const url = `${defaultBaseUrl.replace(/\/+$/, "")}/${source}`;
-    const payload = await fetchJsonWithRetry(url, { timeoutMs: 10000, retries: 1 });
-    items = extractItems(payload).map((raw, index) => normalizeItem(raw, index, config));
+    if (directFetchers[source]) {
+      const result = await directFetchers[source]();
+      items = result.items;
+      accessMode = result.accessMode;
+    } else {
+      throw new Error("no direct fetcher");
+    }
   } catch (error) {
+    errors.push(error);
+  }
+
+  if (!items.length) {
+    for (const baseUrl of dailyHotBaseUrls) {
+      try {
+        const url = `${baseUrl.replace(/\/+$/, "")}/${source}`;
+        const payload = await fetchJsonWithRetry(url, { timeoutMs: 10000, retries: 1 });
+        items = extractItems(payload).map((raw, index) => normalizeItem(raw, index, config));
+        accessMode = "DailyHotApi 公开聚合接口";
+        break;
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+  }
+
+  if (!items.length) {
     degraded = true;
-    message = `${config.sourceName}公开接口暂不可用，已切换为内置离线快照。`;
+    message = `${config.sourceName}真实接口暂不可用，已切换为内置离线快照。`;
     items = fallbackItems(config, q, source);
   }
 
@@ -216,6 +413,7 @@ async function fetchDailyHot(source, { q = "" } = {}) {
     degraded,
     dataState: degraded ? "offline" : "live",
     message,
+    accessMode,
   };
 }
 

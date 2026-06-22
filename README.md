@@ -128,17 +128,22 @@ GET /api/sources
 
 - 微博：`https://weibo.com/ajax/side/hotSearch`
 - B站：`https://s.search.bilibili.com/main/hotword?limit=20`
-- 知乎：第三方聚合 API 优先；接口不可用时尝试解析公开热榜页面，再切换历史快照或离线样例
-- 百度、抖音、今日头条、36氪、IT之家：DailyHotApi 风格公开聚合接口优先；接口不可用时显示内置离线快照
+- 百度：解析 `https://top.baidu.com/board?tab=realtime` 页面内公开热榜数据
+- 知乎：`https://hot.baiwumm.com/api/zhihu` 公开聚合 JSON 优先；不可用时尝试公开页面，再切换历史快照或离线样例
+- 抖音：`https://www.douyin.com/aweme/v1/web/hot/search/list/` 热榜 JSON
+- 今日头条：`https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc`
+- 36氪：解析 `https://www.36kr.com/newsflashes` 快讯页面
+- IT之家：`https://www.ithome.com/rss/`
+- DailyHotApi：作为百度、抖音、头条、36氪、IT之家等中文源的第二层聚合兜底
 - AI HOT：`https://aihot.virxact.com/api/public/items`
-- Hugging Face：公开趋势接口优先；访问不稳定时切换国内入口推荐列表
+- Hugging Face：公开趋势接口优先；访问不稳定时切换 `https://hf-mirror.com/api/trending`
 - GitHub：Search API 优先；访问不稳定时切换国内入口推荐列表
-- Hacker News：官方 Firebase API `https://hacker-news.firebaseio.com/v0/topstories.json`
+- Hacker News：官方 Firebase API `https://hacker-news.firebaseio.com/v0/topstories.json`，条目不足时使用 `https://hn.algolia.com/api/v1/search?tags=front_page`
 
 ## 国内访问说明
 
 GitHub 与 Hugging Face 对部分中文用户可能访问不稳定。Hugging Face 默认使用 `hf-mirror.com` 作为国内入口；GitHub 只有在 `GITHUB_CN_BASE` 配置了已验证可用的镜像时才显示「国内入口」，否则只保留原站链接，避免给用户一个 404 链接。
-对没有稳定公开 API 的平台，前端不直接访问原站页面，而是读取本站后端聚合后的 `/api/hot`。后端按“第三方聚合源 / 公开页面解析 / 历史快照 / 内置离线数据”的顺序兜底，并通过 `/api/sources` 返回每个平台的采集策略。页面卡片和详情抽屉会显示当前使用的策略，方便判断数据是实时、缓存还是降级结果。
+对访问不稳定的平台，前端不直接访问原站页面，而是读取本站后端聚合后的 `/api/hot`。后端按“官方或公开真实接口 / 公开页面解析 / 第三方聚合源 / 历史快照 / 内置离线数据”的顺序兜底，并通过 `/api/sources` 返回每个平台的采集策略。页面卡片和详情抽屉会显示当前使用的策略，方便判断数据是实时、缓存还是降级结果。
 
 如镜像不可用，可替换环境变量：
 
