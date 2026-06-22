@@ -79,7 +79,7 @@ function describeModelTask(repo = {}) {
   return "AI 模型选型、能力验证或应用原型开发";
 }
 
-function normalizeRepo(repo, index) {
+function normalizeRepo(repo, index, sample = false) {
   const id = repo.id || repo.name || "unknown/model";
   const likes = repo.likes ?? repo.likesCount;
   const downloads = repo.downloads;
@@ -103,9 +103,10 @@ function normalizeRepo(repo, index) {
   return {
     rank: index + 1,
     title: id,
-    heat: heatParts.slice(0, 2).join(" · ") || "Trending",
+    heat: sample ? "示例热度" : heatParts.slice(0, 2).join(" · ") || "Trending",
     ...links,
     summary: `这个模型或数据项目主要面向${describeModelTask(repo)}，适合先判断是否符合当前业务场景。`,
+    sample,
     sourceType: "AI 模型社区",
     trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
     why: "近期点赞、下载或趋势分数较高，适合观察模型能力与任务方向。",
@@ -135,9 +136,10 @@ async function fetchHuggingFace({ q = "" } = {}) {
     sourceName: "Hugging Face",
     listName: fallback ? "国内可访问模型推荐" : "Trending Models",
     updatedAt: new Date().toISOString(),
-    items: filtered.slice(0, 10).map(normalizeRepo),
+    items: filtered.slice(0, 10).map((repo, index) => normalizeRepo(repo, index, fallback)),
     degraded: fallback,
     dataState: fallback ? "offline" : "live",
+    sample: fallback,
     message: fallback ? "Hugging Face 直连失败，已切换为国内入口推荐列表。" : undefined,
   };
 }

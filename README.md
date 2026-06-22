@@ -111,11 +111,13 @@ GET /api/sources
 |---|---:|---|
 |PORT|3001|后端端口|
 |CACHE_TTL|600|缓存秒数|
+|CACHE_MAX_ENTRIES|200|内存缓存最多保留条目数，防止长时间运行占用过多内存|
 |REFRESH_COOLDOWN_SEC|60|`?refresh=1` 强制刷新冷却秒数，避免公开接口被频繁刷新|
 |CLIENT_ORIGIN|内置本地、Vercel、妙搭域名|CORS 白名单，生产可用逗号追加前端域名|
 |USE_CN_LINKS|1|默认使用国内入口链接|
 |HUGGINGFACE_CN_BASE|https://hf-mirror.com|Hugging Face 国内入口|
-|GITHUB_CN_BASE|https://kkgithub.com|GitHub 国内入口|
+|GITHUB_CN_BASE|空|GitHub 国内入口。默认留空，只有确认镜像可用时才配置，避免页面出现 404 链接|
+|GITHUB_TOKEN|空|可选 GitHub API Token，用于提高 GitHub Search API 访问限额|
 |ZHIHU_HOT_API|https://api-hot.imsyy.top/zhihu|知乎第三方热榜接口|
 |ZHIHU_HOT_PAGE|https://www.zhihu.com/billboard|知乎第三方接口失败后的公开页面解析兜底|
 |DAILY_HOT_API_BASE|https://api-hot.imsyy.top|百度、抖音、头条、36氪、IT之家等聚合源基础地址|
@@ -135,7 +137,7 @@ GET /api/sources
 
 ## 国内访问说明
 
-GitHub 与 Hugging Face 对部分中文用户可能访问不稳定。项目默认把标题链接转换为国内入口，并在每条内容中保留「原站」链接。
+GitHub 与 Hugging Face 对部分中文用户可能访问不稳定。Hugging Face 默认使用 `hf-mirror.com` 作为国内入口；GitHub 只有在 `GITHUB_CN_BASE` 配置了已验证可用的镜像时才显示「国内入口」，否则只保留原站链接，避免给用户一个 404 链接。
 对没有稳定公开 API 的平台，前端不直接访问原站页面，而是读取本站后端聚合后的 `/api/hot`。后端按“第三方聚合源 / 公开页面解析 / 历史快照 / 内置离线数据”的顺序兜底，并通过 `/api/sources` 返回每个平台的采集策略。页面卡片和详情抽屉会显示当前使用的策略，方便判断数据是实时、缓存还是降级结果。
 
 如镜像不可用，可替换环境变量：
@@ -143,6 +145,7 @@ GitHub 与 Hugging Face 对部分中文用户可能访问不稳定。项目默�
 ```bash
 set HUGGINGFACE_CN_BASE=https://你的可用镜像域名
 set GITHUB_CN_BASE=https://你的可用镜像域名
+set GITHUB_TOKEN=你的 GitHub API Token
 npm run dev:server
 ```
 

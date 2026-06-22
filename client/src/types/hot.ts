@@ -9,6 +9,7 @@ export type HotItem = {
   sourceType?: string;
   trend?: "new" | "up" | "down" | "steady";
   why?: string;
+  sample?: boolean;
 };
 
 export type SourceStrategy = {
@@ -33,6 +34,7 @@ export type HotPlatform = {
   fetchDurationMs?: number;
   accessMode?: string;
   strategy?: SourceStrategy;
+  sample?: boolean;
 };
 
 export type SourceStatus = {

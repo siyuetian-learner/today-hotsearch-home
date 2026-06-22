@@ -23,8 +23,9 @@ function fallbackItems(q) {
       rank: index + 1,
       title,
       url: "#",
-      heat,
+      heat: "示例热度",
       summary,
+      sample: true,
       sourceType: "技术社区",
       trend: index < 4 ? "up" : "steady",
       why: "Hacker News 离线样例，用于上游不可用时保持开发者榜单可读。",
@@ -106,6 +107,7 @@ async function fetchHackerNews({ q = "" } = {}) {
       items: fallbackItems(q).slice(0, 10),
       degraded: true,
       dataState: "offline",
+      sample: true,
       message,
     };
   }

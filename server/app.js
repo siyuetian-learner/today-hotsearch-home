@@ -70,6 +70,7 @@ function shouldRefresh(req, scope) {
 
   const key = `${getRequester(req)}:${scope}`;
   const now = Date.now();
+  cleanupRefreshLocks(now);
   const last = refreshLocks.get(key) || 0;
 
   if (now - last < refreshCooldownSec * 1000) {
@@ -79,6 +80,15 @@ function shouldRefresh(req, scope) {
 
   refreshLocks.set(key, now);
   return true;
+}
+
+function cleanupRefreshLocks(now = Date.now()) {
+  const maxAge = refreshCooldownSec * 1000 * 2;
+  for (const [key, last] of refreshLocks) {
+    if (now - last > maxAge) {
+      refreshLocks.delete(key);
+    }
+  }
 }
 
 app.use(
@@ -251,6 +261,13 @@ app.get("/api/sources", (_req, res) => {
   res.json({
     sourceCount: sourceOrder.length,
     sources: listSourceStrategies(sourceOrder),
+  });
+});
+
+app.all("/api/*", (req, res) => {
+  res.status(404).json({
+    error: "not_found",
+    message: `${req.method} ${req.path} is not a supported API endpoint.`,
   });
 });
 

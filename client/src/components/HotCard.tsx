@@ -27,10 +27,11 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
   const visibleItems = expanded ? items : items.slice(0, 5);
   const hasLongMetrics = ["huggingface", "github", "hackernews", "aihot"].includes(board.source);
   const sourceColor = platformColors[board.source] || "#111827";
+  const isSampleBoard = Boolean(board.sample || items.some((item) => item.sample));
 
   return (
     <article
-      className={`board ${hasLongMetrics ? "has-long-metrics" : ""}`}
+      className={`board ${hasLongMetrics ? "has-long-metrics" : ""} ${isSampleBoard ? "is-sample" : ""}`}
       data-source={board.source}
       style={{ "--source-color": sourceColor } as CSSProperties}
     >
@@ -44,7 +45,7 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
             <p>{getListName(board)}</p>
           </div>
         </div>
-        <span className={`state ${getStateTone(board)}`}>{getSourceType(board)}</span>
+        <span className={`state ${getStateTone(board)} ${isSampleBoard ? "is-sample" : ""}`}>{getSourceType(board)}</span>
       </header>
 
       {board.error ? (
@@ -66,6 +67,7 @@ export function HotCard({ board, expanded, onRetry, onSelectItem, onToggle }: Pr
                     <button className="title-button" title={item.title} type="button" onClick={() => onSelectItem(board, item)}>
                       {item.title}
                     </button>
+                    {item.sample || board.sample ? <span className="sample-badge">示例</span> : null}
                     <span className={`hot-status is-${hotStatus.tone}`}>{hotStatus.label}</span>
                   </span>
                   {item.summary ? <small>{item.summary}</small> : null}

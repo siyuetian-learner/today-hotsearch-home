@@ -93,6 +93,7 @@ export function getListName(board: HotPlatform) {
 }
 
 export function getSourceType(board: HotPlatform) {
+  if (board.sample || board.items?.some((item) => item.sample)) return "示例";
   if (board.dataState === "live") return "实时";
   if (board.dataState === "cached") return "缓存";
   if (board.dataState === "stale") return "历史快照";
@@ -174,6 +175,8 @@ export function formatRelativeTime(value = "") {
 }
 
 export function getMetricText(board: HotPlatform, item: HotItem) {
+  if (item.sample || board.sample) return "示例热度";
+
   const heat = formatHeat(item.heat);
 
   if (!heat) return "";

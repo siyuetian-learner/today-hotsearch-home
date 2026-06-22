@@ -112,12 +112,17 @@ async function fetchGithub({ q = "" } = {}) {
 
   let repos = [];
   let fallback = false;
+  const headers = {
+    "x-github-api-version": "2022-11-28",
+  };
+
+  if (process.env.GITHUB_TOKEN) {
+    headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
 
   try {
     const data = await fetchJson(url.toString(), {
-      headers: {
-        "x-github-api-version": "2022-11-28",
-      },
+      headers,
     });
     repos = data.items || [];
   } catch (error) {
@@ -133,9 +138,10 @@ async function fetchGithub({ q = "" } = {}) {
     items: repos.slice(0, 10).map((repo, index) => ({
       rank: index + 1,
       title: repo.full_name,
-      heat: `${repo.stargazers_count} stars`,
+      heat: fallback ? "示例热度" : `${repo.stargazers_count} stars`,
       ...toGithubLinks(repo.full_name),
       summary: buildRepoSummary(repo),
+      sample: fallback,
       sourceType: "开源社区",
       trend: index < 3 ? "up" : index < 7 ? "steady" : "new",
       why: fallback
@@ -144,6 +150,7 @@ async function fetchGithub({ q = "" } = {}) {
     })),
     degraded: fallback,
     dataState: fallback ? "offline" : "live",
+    sample: fallback,
     message: fallback ? "GitHub 直连失败，已切换为国内入口推荐列表。" : undefined,
   };
 }

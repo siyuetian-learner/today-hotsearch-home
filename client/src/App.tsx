@@ -70,6 +70,14 @@ function readStoredListLength(key: string) {
   }
 }
 
+function writeStoredValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage may be unavailable in private mode or strict browser settings.
+  }
+}
+
 function normalizeTitle(value: string) {
   return value.toLowerCase().replace(/[^\p{Script=Han}a-z0-9]+/gu, "");
 }
@@ -292,6 +300,10 @@ export function App() {
     return { live, cached, degraded, failed, noPublicApi };
   }, [statuses, visibleBoards]);
 
+  const hasSampleData = useMemo(() => {
+    return visibleBoards.some((board) => board.sample || board.items?.some((item) => item.sample));
+  }, [visibleBoards]);
+
   const detailTitleId = selectedHot ? `detail-title-${selectedHot.board.source}-${selectedHot.item.rank}` : undefined;
 
   async function loadBoards(options: { refresh?: boolean; q?: string } = {}) {
@@ -478,7 +490,7 @@ export function App() {
       ...(Array.isArray(current) ? current : []),
     ].slice(0, 30);
 
-    window.localStorage.setItem("hotsearch.feedback", JSON.stringify(next));
+    writeStoredValue("hotsearch.feedback", JSON.stringify(next));
     setSavedFeedbackCount(next.length);
     setSourceDraft("");
     setFeedbackDraft("");
@@ -490,19 +502,19 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("hotsearch.category", activeCategory);
+    writeStoredValue("hotsearch.category", activeCategory);
   }, [activeCategory]);
 
   useEffect(() => {
-    window.localStorage.setItem("hotsearch.view", viewMode);
+    writeStoredValue("hotsearch.view", viewMode);
   }, [viewMode]);
 
   useEffect(() => {
-    window.localStorage.setItem("hotsearch.hiddenSources", JSON.stringify(Array.from(hiddenSources)));
+    writeStoredValue("hotsearch.hiddenSources", JSON.stringify(Array.from(hiddenSources)));
   }, [hiddenSources]);
 
   useEffect(() => {
-    window.localStorage.setItem("hotsearch.watchKeywords", JSON.stringify(watchKeywords));
+    writeStoredValue("hotsearch.watchKeywords", JSON.stringify(watchKeywords));
   }, [watchKeywords]);
 
   useEffect(() => {
@@ -535,7 +547,7 @@ export function App() {
               <span>数据源</span>
             </div>
             <div className="status-box">
-              <strong>{visibleBoards.reduce((sum, board) => sum + (board.items?.length || 0), 0) || 120}</strong>
+              <strong>{visibleBoards.reduce((sum, board) => sum + (board.items?.length || 0), 0)}</strong>
               <span>热点条目</span>
             </div>
             <div className="status-box">
@@ -573,6 +585,7 @@ export function App() {
         </section>
 
         <section className="data-strip" aria-label="数据状态">
+          {hasSampleData ? <span className="strip-warning">当前包含离线示例数据，非实时热点</span> : null}
           <span>{resultStatus}</span>
           <span>实时 {dataSummary.live}</span>
           <span>缓存 {dataSummary.cached}</span>

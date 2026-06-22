@@ -24,7 +24,7 @@ function item(rank: number, title: string, heat: string, summary = "", url = "#"
   return { rank, title, heat, summary, url };
 }
 
-export const fallbackHotResponse = {
+export const fallbackHotResponse: { ttlSec: number; platforms: HotPlatform[] } = {
   ttlSec: 600,
   platforms: [
     {
@@ -273,18 +273,20 @@ export const fallbackHotResponse = {
         item(10, "A visual guide to database indexes", "113 points · 25 comments"),
       ],
     },
-  ] satisfies HotPlatform[],
+  ],
 };
 
 fallbackHotResponse.platforms.forEach((platform) => {
   platform.items = platform.items.map((hotItem) => {
-    if (hotItem.url && hotItem.url !== "#") return hotItem;
-
+    const url = hotItem.url && hotItem.url !== "#" ? hotItem.url : buildFallbackUrl(platform.source, hotItem.title);
     return {
       ...hotItem,
-      url: buildFallbackUrl(platform.source, hotItem.title),
+      url,
+      heat: "示例热度",
+      sample: true,
     };
   });
+  platform.sample = true;
 });
 
 function model(rank: number, repoId: string, heat: string, summary = "") {

@@ -122,6 +122,7 @@ async function fetchZhihuHot({ q = "" } = {}) {
   let degraded = false;
   let message;
   let accessMode = "第三方聚合接口";
+  let sample = false;
 
   try {
     const data = await fetchJson(api);
@@ -137,6 +138,7 @@ async function fetchZhihuHot({ q = "" } = {}) {
       message = "知乎官方接口需要认证，第三方接口暂不可用，已尝试解析公开热榜页面。";
     } catch {
       degraded = true;
+      sample = true;
       accessMode = "内置离线样例";
       message = "知乎官方接口需要认证，第三方接口和公开页面暂不可用，已切换为知乎示例热榜。";
       list = fallbackItems.map(([title, heat, summary]) => ({ title, heat, summary }));
@@ -154,14 +156,16 @@ async function fetchZhihuHot({ q = "" } = {}) {
     dataState: degraded ? "offline" : "live",
     message,
     accessMode,
+    sample,
     items: filtered.slice(0, 10).map((item, index) => {
       const title = pickTitle(item);
       return {
         rank: index + 1,
         title,
-        heat: item.heat || item.hot || item.metrics || item.excerpt || "热榜",
+        heat: sample ? "示例热度" : item.heat || item.hot || item.metrics || item.excerpt || "热榜",
         url: pickUrl(item, title),
         summary: item.summary || item.desc || item.excerpt || item.answer_count_text || "",
+        sample,
       };
     }),
   };

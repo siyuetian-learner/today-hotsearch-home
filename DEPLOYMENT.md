@@ -41,11 +41,13 @@ git push -u origin main
 - Install Command：`npm install`
 - 环境变量：
   - `CACHE_TTL=600`
+  - `CACHE_MAX_ENTRIES=200`
   - `REFRESH_COOLDOWN_SEC=60`
   - `CLIENT_ORIGIN=https://today-hotsearch-home.vercel.app,https://ncn2j3n91nay.aiforce.cloud`
   - `USE_CN_LINKS=1`
   - `HUGGINGFACE_CN_BASE=https://hf-mirror.com`
-  - `GITHUB_CN_BASE=https://kkgithub.com`
+  - `GITHUB_CN_BASE=`（没有稳定可用镜像时保持为空）
+  - `GITHUB_TOKEN=`（可选，用于提高 GitHub API 限额）
   - `ZHIHU_HOT_API=https://api-hot.imsyy.top/zhihu`
   - `ZHIHU_HOT_PAGE=https://www.zhihu.com/billboard`
   - `DAILY_HOT_API_BASE=https://api-hot.imsyy.top`

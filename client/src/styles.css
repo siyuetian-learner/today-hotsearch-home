@@ -23,6 +23,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
 html {
   min-width: 320px;
   background: var(--paper);
@@ -340,8 +345,10 @@ h1 {
 }
 
 .data-strip .strip-warning {
-  color: var(--amber);
-  border-color: rgba(217, 138, 21, 0.5);
+  color: #8a4f00;
+  border-color: rgba(217, 138, 21, 0.7);
+  background: rgba(217, 138, 21, 0.14);
+  font-weight: 800;
 }
 
 .home-settings {
@@ -1281,6 +1288,29 @@ h1 {
   background: rgba(213, 58, 47, 0.08);
 }
 
+.state.is-sample {
+  color: #8a4f00;
+  background: rgba(217, 138, 21, 0.14);
+}
+
+.board.is-sample {
+  background:
+    linear-gradient(135deg, rgba(217, 138, 21, 0.08), transparent 32%),
+    var(--panel);
+}
+
+.board.is-sample .board-head::after {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  color: rgba(138, 79, 0, 0.22);
+  content: "SAMPLE";
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 28px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
 .hot-list {
   display: grid;
   margin: 0;
@@ -1393,6 +1423,21 @@ h1 {
 .hot-status.is-watch {
   color: var(--ink-soft);
   background: transparent;
+}
+
+.sample-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  color: #8a4f00;
+  border-radius: 4px;
+  background: rgba(217, 138, 21, 0.16);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .topic small,
@@ -1571,6 +1616,39 @@ h1 {
   line-height: 1.7;
 }
 
+.error-boundary {
+  max-width: 720px;
+  margin: 12vh auto;
+  padding: 32px;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.error-boundary h1 {
+  margin: 0 0 12px;
+  font-size: 32px;
+}
+
+.error-boundary p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.error-boundary button {
+  height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
 .related-list button {
   display: grid;
   gap: 5px;
@@ -1596,6 +1674,16 @@ h1 {
   border-top: 1px solid var(--line-strong);
   font-size: 13px;
   line-height: 1.7;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba(36, 89, 214, 0.14);
 }
 
 @media (prefers-reduced-motion: reduce) {
