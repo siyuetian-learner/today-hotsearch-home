@@ -1,7 +1,30 @@
 const memoryStore = new Map();
 
-const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+function firstEnv(...names) {
+  for (const name of names) {
+    if (process.env[name]) return process.env[name];
+  }
+
+  return "";
+}
+
+function firstEnvEndingWith(...suffixes) {
+  for (const [name, value] of Object.entries(process.env)) {
+    if (!value) continue;
+    if (suffixes.some((suffix) => name.endsWith(suffix))) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+const redisUrl =
+  firstEnv("KV_REST_API_URL", "UPSTASH_REDIS_REST_URL") ||
+  firstEnvEndingWith("_KV_REST_API_URL", "_UPSTASH_REDIS_REST_URL");
+const redisToken =
+  firstEnv("KV_REST_API_TOKEN", "UPSTASH_REDIS_REST_TOKEN") ||
+  firstEnvEndingWith("_KV_REST_API_TOKEN", "_UPSTASH_REDIS_REST_TOKEN");
 const keyPrefix = process.env.STORE_KEY_PREFIX || "today-hotsearch";
 const hasRemote = Boolean(redisUrl && redisToken);
 let remoteUnavailableLogged = false;
