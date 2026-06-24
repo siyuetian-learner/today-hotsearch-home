@@ -18,6 +18,15 @@ export type RankedHot = {
   reason: string;
 };
 
+type CompositeCandidate = {
+  board: HotPlatform;
+  item: HotItem;
+};
+
+type CompositeCluster = {
+  entries: CompositeCandidate[];
+};
+
 const categoryConfig = [
   {
     code: "AI",
@@ -64,7 +73,59 @@ function titleBigrams(value: string) {
   return grams;
 }
 
+const geoTokens = [
+  "北京",
+  "上海",
+  "天津",
+  "重庆",
+  "河北",
+  "山西",
+  "辽宁",
+  "吉林",
+  "黑龙江",
+  "江苏",
+  "浙江",
+  "安徽",
+  "福建",
+  "江西",
+  "山东",
+  "河南",
+  "湖北",
+  "湖南",
+  "广东",
+  "海南",
+  "四川",
+  "贵州",
+  "云南",
+  "陕西",
+  "甘肃",
+  "青海",
+  "台湾",
+  "内蒙古",
+  "广西",
+  "西藏",
+  "宁夏",
+  "新疆",
+  "香港",
+  "澳门",
+];
+
+function extractGeoTokens(value: string) {
+  const normalized = normalizeTitle(value);
+  return geoTokens.filter((token) => normalized.includes(token));
+}
+
+function hasConflictingGeo(a: string, b: string) {
+  const left = extractGeoTokens(a);
+  const right = extractGeoTokens(b);
+
+  if (!left.length || !right.length) return false;
+  return !left.some((token) => right.includes(token));
+}
+
 function sameTopic(a: string, b: string) {
+  if (hasConflictingGeo(a, b)) return false;
+
   const left = normalizeTitle(a);
   const right = normalizeTitle(b);
 
@@ -80,7 +141,8 @@ function sameTopic(a: string, b: string) {
     if (rightGrams.has(gram)) hits += 1;
   }
 
-  return hits >= 3 && hits / Math.min(leftGrams.size, rightGrams.size) >= 0.38;
+  const overlap = hits / Math.min(leftGrams.size, rightGrams.size);
+  return hits >= 4 && overlap >= 0.52;
 }
 
 function parseHeat(value: HotItem["heat"]) {
@@ -257,21 +319,49 @@ function getLeadDescription(code: string, top: RankedHot) {
   return `${sourceName}出现新的高热信号，适合继续打开详情确认背景和影响。`;
 }
 
+function buildCandidateClusters(candidates: CompositeCandidate[]) {
+  const clusters: CompositeCluster[] = [];
+
+  for (const candidate of candidates) {
+    const found = clusters.find((cluster) =>
+      cluster.entries.some((entry) => sameTopic(candidate.item.title, entry.item.title)),
+    );
+
+    if (found) {
+      found.entries.push(candidate);
+    } else {
+      clusters.push({ entries: [candidate] });
+    }
+  }
+
+  return clusters;
+}
+
+function getClusterSourceCount(cluster: CompositeCluster) {
+  return new Set(cluster.entries.map((entry) => entry.board.source)).size;
+}
+
+function getClusterRepresentative(cluster: CompositeCluster): RankedHot {
+  const sourceCount = getClusterSourceCount(cluster);
+  const ranked = cluster.entries
+    .map(({ board, item }) => ({
+      board,
+      item,
+      sourceCount,
+      score: getScore(board, item, sourceCount),
+      summary: getSummary(board, item),
+      reason: getReason(board, item, sourceCount),
+    }))
+    .sort((a, b) => b.score - a.score || a.item.rank - b.item.rank);
+
+  return ranked[0];
+}
+
 export function buildCompositeRanking(boards: HotPlatform[], limit = 20): RankedHot[] {
-  return boards
-    .flatMap((board) =>
-      (board.items || []).map((item) => {
-        const sourceCount = getSourceCount(board, item, boards);
-        return {
-          board,
-          item,
-          sourceCount,
-          score: getScore(board, item, sourceCount),
-          summary: getSummary(board, item),
-          reason: getReason(board, item, sourceCount),
-        };
-      }),
-    )
+  const candidates = boards.flatMap((board) => (board.items || []).map((item) => ({ board, item })));
+
+  return buildCandidateClusters(candidates)
+    .map((cluster) => getClusterRepresentative(cluster))
     .sort((a, b) => b.score - a.score || a.item.rank - b.item.rank)
     .slice(0, limit);
 }
