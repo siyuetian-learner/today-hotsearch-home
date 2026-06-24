@@ -6,12 +6,17 @@ const archiveFile = path.resolve(archiveDir, "archive.json");
 const maxDays = Number(process.env.ARCHIVE_DAYS || 7);
 const timezoneOffsetHours = Number(process.env.ARCHIVE_TIMEZONE_OFFSET || 8);
 
+const isServerless = process.env.VERCEL === "1";
+
 let archive = readArchive();
 const statuses = new Map();
-let archivePersistent = process.env.VERCEL !== "1";
+let archivePersistent = !isServerless;
 let archiveMessage = archivePersistent
   ? "当前运行环境支持本地轻量快照。"
   : "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
+
+let pendingWriteTimer = null;
+let writeInFlight = false;
 
 function readArchive() {
   try {
@@ -25,18 +30,59 @@ function readArchive() {
   }
 }
 
-function persistArchive() {
-  try {
-    fs.mkdirSync(archiveDir, { recursive: true });
-    fs.writeFileSync(archiveFile, JSON.stringify(archive, null, 2), "utf8");
-    archivePersistent = process.env.VERCEL !== "1";
-    archiveMessage = archivePersistent
-      ? "当前运行环境支持本地轻量快照。"
-      : "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
-  } catch {
-    archivePersistent = false;
-    archiveMessage = "当前运行环境无法写入归档文件，历史快照仅作本实例内临时参考。";
+// Serverless（如 Vercel）文件系统不可持久、且实例随时回收，落盘没有意义还浪费 IO，
+// 因此直接跳过磁盘写，只在内存里保留本实例快照。
+// 本地 / 长驻 Node 环境改为「节流 + 异步」写盘，避免每次成功抓取都同步
+// writeFileSync 阻塞事件循环（原实现高频抓取时会明显拖慢响应）。
+const ARCHIVE_WRITE_DEBOUNCE_MS = Number(process.env.ARCHIVE_WRITE_DEBOUNCE_MS || 2000);
+
+function flushArchive() {
+  if (writeInFlight) {
+    // 上一次写入还没完成，稍后再排一次，避免并发写同一文件。
+    scheduleArchiveWrite();
+    return;
   }
+
+  writeInFlight = true;
+  const payload = JSON.stringify(archive);
+
+  fs.promises
+    .mkdir(archiveDir, { recursive: true })
+    .then(() => fs.promises.writeFile(archiveFile, payload, "utf8"))
+    .then(() => {
+      archivePersistent = true;
+      archiveMessage = "当前运行环境支持本地轻量快照。";
+    })
+    .catch(() => {
+      archivePersistent = false;
+      archiveMessage = "当前运行环境无法写入归档文件，历史快照仅作本实例内临时参考。";
+    })
+    .finally(() => {
+      writeInFlight = false;
+    });
+}
+
+function scheduleArchiveWrite() {
+  if (pendingWriteTimer) return;
+  pendingWriteTimer = setTimeout(() => {
+    pendingWriteTimer = null;
+    flushArchive();
+  }, ARCHIVE_WRITE_DEBOUNCE_MS);
+  // 不阻止进程退出（脚本 / 短命进程场景）。
+  if (typeof pendingWriteTimer.unref === "function") {
+    pendingWriteTimer.unref();
+  }
+}
+
+function persistArchive() {
+  if (isServerless) {
+    // 内存态已更新，Serverless 不落盘；状态保持「临时归档」。
+    archivePersistent = false;
+    archiveMessage = "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
+    return;
+  }
+
+  scheduleArchiveWrite();
 }
 
 function toDateKey(value = new Date()) {

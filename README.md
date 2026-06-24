@@ -15,8 +15,8 @@
 - 数据：微博、百度、知乎、B站、抖音、今日头条、36氪、IT之家、AI HOT、Hugging Face、GitHub、Hacker News 共 12 个来源
 - 缓存与归档：每个平台独立缓存，默认 600 秒；保存最近 7 天轻量快照，并提供数据状态
 - 体验：分类 Tab、搜索、刷新、单卡重试、展开 Top 10、速读模式、热点详情抽屉、我的首页平台隐藏、数据状态条
-- 视觉：参考乔布斯时代 Mac OS X Aqua / brushed metal 风格，保留高信息密度与移动端单列布局
-- 公网入口：飞书妙搭发布的静态入口，接口不可达时自动展示 12 平台离线快照，适合分享给国内用户
+- 视觉：参考 WIRED 科技媒体的黑白高对比报刊风（详见 `DESIGN.md`），方角、细分隔线、强标题层级，保留高信息密度与移动端单列布局
+- 公网入口：飞书妙搭发布的静态入口，构建时注入 `VITE_API_BASE` 后默认拉取 Vercel 后端实时数据；仅在后端不可达时回退到标注清晰的「离线占位示例」（占位标题为中性文案，不指向具体真实事件），适合分享给国内用户
 
 ## 项目结构
 
@@ -162,7 +162,7 @@ npm run dev:server
 
 最终采用 Vercel 双项目部署：前端项目 `today-hotsearch-home`，后端项目 `today-hotsearch-home-server`。Railway 部署尝试时账号提示 `Trial expired`，因此改用 Vercel Express 后端。
 
-为保证国内用户无需 VPN 也能打开页面，另发布飞书妙搭公网入口：`https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/`。该入口使用静态构建产物，实时接口不可达时会自动展示内置离线快照。
+为保证国内用户无需 VPN 也能打开页面，另发布飞书妙搭公网入口：`https://ncn2j3n91nay.aiforce.cloud/app/app_4ka0f1un2r5re/`。该入口使用静态构建产物，发布时通过 `VITE_API_BASE` 指向 Vercel 后端以默认拉取实时数据；只有当后端也不可达时，才回退到标注清晰的内置离线占位示例（占位标题为中性文案，不会被误读为真实热点）。
 
 详见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
 

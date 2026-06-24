@@ -62,7 +62,16 @@ function parseOrigins(value = "") {
 const allowedOrigins = new Set([...defaultOrigins, ...parseOrigins(process.env.CLIENT_ORIGIN)]);
 
 function getRequester(req) {
-  return String(req.headers["x-forwarded-for"] || req.ip || "unknown").split(",")[0].trim();
+  // 刷新冷却用于限制 ?refresh=1 穿透到上游接口，因此取 IP 必须用「平台注入的、
+  // 客户端无法伪造」的可信头，而不是任意客户端都能自定义的 x-forwarded-for。
+  // Vercel 会注入 x-vercel-forwarded-for / x-real-ip；本地直连回退到 req.ip。
+  // 注意：若使用其他网关（如 Nginx），应在此替换为该网关注入的可信头。
+  const trusted =
+    req.headers["x-vercel-forwarded-for"] ||
+    req.headers["x-real-ip"] ||
+    req.ip ||
+    "unknown";
+  return String(trusted).split(",")[0].trim();
 }
 
 function shouldRefresh(req, scope) {

@@ -8,7 +8,7 @@
 - GitHub：https://github.com/siyuetian-learner/today-hotsearch-home
 
 Railway 部署时账号提示 `Trial expired`，需要升级套餐才能继续。最终采用 Vercel 双项目部署：一个 Vite 前端项目，一个 Express 后端项目。
-为保证国内用户无需 VPN 也能打开，另通过飞书妙搭发布静态公网入口。该入口设置为互联网公开免登录，页面在实时 API 不可达时自动使用内置离线快照。
+为保证国内用户无需 VPN 也能打开，另通过飞书妙搭发布静态公网入口。该入口设置为互联网公开免登录，构建时注入 `VITE_API_BASE` 后默认拉取 Vercel 后端实时数据；只有后端不可达时才使用标注清晰的离线占位示例。
 
 ## 部署前检查表
 
@@ -80,11 +80,16 @@ GET https://today-hotsearch-home-server.vercel.app/api/sources
 - 发布目录：`client/dist`
 - 访问范围：互联网公开，免登录
 - 构建要求：`client/vite.config.ts` 使用 `base: "./"`，确保资源能在 `/app/app_xxx/` 子路径下正确加载。
+- **数据要求（重要）**：妙搭是纯静态托管、没有自己的后端。如果构建时不注入 `VITE_API_BASE`，前端会把 `/api/hot` 请求发到 `aiforce.cloud` 自身域名上，必然 404 / 跨域失败，导致页面**永远只显示离线占位示例**。因此发布前必须把 `VITE_API_BASE` 指向 Vercel 后端，让公网入口真正拉实时数据；离线占位仅在后端也不可达时兜底。
 
 发布命令：
 
 ```bash
-npm --workspace client run build
+# 关键：构建时注入后端地址，否则妙搭入口只会显示离线占位示例（非真实热点）。
+# Windows PowerShell: $env:VITE_API_BASE="https://today-hotsearch-home-server.vercel.app"; npm --workspace client run build
+# Windows CMD:        set VITE_API_BASE=https://today-hotsearch-home-server.vercel.app && npm --workspace client run build
+VITE_API_BASE=https://today-hotsearch-home-server.vercel.app \
+  npm --workspace client run build
 lark-cli apps +html-publish --app-id app_4ka0f1un2r5re --path client/dist
 lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --require-login=false
 ```
@@ -102,7 +107,7 @@ lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --requ
 9. 连续请求 `/api/hot?refresh=1`，第二次在冷却期内返回缓存并带 `x-refresh-limited` 响应头。
 10. 打开 `/api/archive?range=today`，确认 Serverless 环境会返回 `persistent: false` 或明确临时归档提示。
 11. 打开 `/api/sources`，确认无公开 API 平台包含第三方源、公开页面、历史快照和离线数据兜底策略。
-12. 打开妙搭公网入口，确认无登录拦截、12 张卡片可见、离线快照可用。
+12. 打开妙搭公网入口，确认无登录拦截、12 张卡片可见；并确认默认显示的是**实时/缓存数据**（构建已注入 `VITE_API_BASE`），仅在后端不可达时才回退到标注清晰的离线占位示例。
 
 ## 线上证据
 
