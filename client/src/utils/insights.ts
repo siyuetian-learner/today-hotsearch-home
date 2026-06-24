@@ -367,10 +367,15 @@ export function buildCompositeRanking(boards: HotPlatform[], limit = 20): Ranked
 }
 
 export function buildLeadCategories(boards: HotPlatform[]): LeadCategory[] {
+  const selectedTopics: RankedHot[] = [];
+
   return categoryConfig.map((category) => {
     const categoryBoards = boards.filter((board) => category.sources.includes(board.source) && board.items?.length);
-    const ranking = buildCompositeRanking(categoryBoards, 1);
-    const top = ranking[0];
+    const ranking = buildCompositeRanking(categoryBoards, 8);
+    const top =
+      ranking.find((entry) =>
+        selectedTopics.every((selected) => !sameTopic(entry.item.title, selected.item.title)),
+      ) || ranking[0];
 
     if (!top) {
       return {
@@ -381,6 +386,8 @@ export function buildLeadCategories(boards: HotPlatform[]): LeadCategory[] {
         sourceCount: categoryBoards.length,
       };
     }
+
+    selectedTopics.push(top);
 
     return {
       code: category.code,
