@@ -3,6 +3,8 @@ const fs = require("fs");
 const cors = require("cors");
 const express = require("express");
 const { getCache, setCache } = require("./utils/cache");
+const { claimRefreshSlot } = require("./utils/refresh-lock");
+const { getStoreInfo } = require("./utils/shared-store");
 const { ensurePlatformLinks } = require("./utils/source-links");
 const { fetchAihot } = require("./services/aihot");
 const { fetchBilibiliHot } = require("./services/bilibili");
@@ -43,7 +45,6 @@ const sources = {
 };
 
 const sourceOrder = Object.keys(sources);
-const refreshLocks = new Map();
 
 const defaultOrigins = [
   "http://127.0.0.1:5173",
@@ -62,10 +63,6 @@ function parseOrigins(value = "") {
 const allowedOrigins = new Set([...defaultOrigins, ...parseOrigins(process.env.CLIENT_ORIGIN)]);
 
 function getRequester(req) {
-  // 刷新冷却用于限制 ?refresh=1 穿透到上游接口，因此取 IP 必须用「平台注入的、
-  // 客户端无法伪造」的可信头，而不是任意客户端都能自定义的 x-forwarded-for。
-  // Vercel 会注入 x-vercel-forwarded-for / x-real-ip；本地直连回退到 req.ip。
-  // 注意：若使用其他网关（如 Nginx），应在此替换为该网关注入的可信头。
   const trusted =
     req.headers["x-vercel-forwarded-for"] ||
     req.headers["x-real-ip"] ||
@@ -74,30 +71,18 @@ function getRequester(req) {
   return String(trusted).split(",")[0].trim();
 }
 
-function shouldRefresh(req, scope) {
+async function shouldRefresh(req, scope) {
   if (req.query.refresh !== "1") return false;
 
   const key = `${getRequester(req)}:${scope}`;
-  const now = Date.now();
-  cleanupRefreshLocks(now);
-  const last = refreshLocks.get(key) || 0;
+  const allowed = await claimRefreshSlot(key, refreshCooldownSec);
 
-  if (now - last < refreshCooldownSec * 1000) {
+  if (!allowed) {
     req.refreshLimited = true;
     return false;
   }
 
-  refreshLocks.set(key, now);
   return true;
-}
-
-function cleanupRefreshLocks(now = Date.now()) {
-  const maxAge = refreshCooldownSec * 1000 * 2;
-  for (const [key, last] of refreshLocks) {
-    if (now - last > maxAge) {
-      refreshLocks.delete(key);
-    }
-  }
 }
 
 app.use(
@@ -121,6 +106,7 @@ app.get("/api/health", (_req, res) => {
     ttlSec,
     refreshCooldownSec,
     sourceCount: sourceOrder.length,
+    storage: getStoreInfo(),
     docs: ["/api/hot", "/api/hot/:source", "/api/archive", "/api/status", "/api/sources"],
   });
 });
@@ -138,7 +124,7 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
   const cacheKey = `hot:${source}:q=${q}`;
 
   if (!refresh) {
-    const cached = getCache(cacheKey);
+    const cached = await getCache(cacheKey);
 
     if (cached) {
       console.log(`[cache hit] ${cacheKey}`);
@@ -148,7 +134,7 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
         fetchDurationMs: 0,
       };
 
-      recordStatus(source, {
+      await recordStatus(source, {
         status: "cached",
         itemCount: cachedPlatform.items?.length || 0,
         updatedAt: new Date().toISOString(),
@@ -167,11 +153,13 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
     dataState: linkedData.dataState || (linkedData.degraded ? "offline" : "live"),
     fetchDurationMs: Date.now() - startedAt,
   });
-  setCache(cacheKey, platform, ttlSec);
-  recordSnapshot(platform, {
+
+  await setCache(cacheKey, platform, ttlSec);
+  await recordSnapshot(platform, {
     durationMs: platform.fetchDurationMs,
     status: platform.degraded ? "degraded" : "success",
   });
+
   return platform;
 }
 
@@ -180,13 +168,13 @@ async function safeLoadSource(source, options) {
     return await loadSource(source, options);
   } catch (error) {
     console.error(`[source error] ${source}:`, error.message);
-    recordStatus(source, {
+    await recordStatus(source, {
       status: "failed",
       message: error.message,
       updatedAt: new Date().toISOString(),
     });
 
-    const snapshot = getLatestSnapshot(source);
+    const snapshot = await getLatestSnapshot(source);
 
     if (snapshot) {
       return attachSourceStrategy(source, ensurePlatformLinks(snapshot));
@@ -206,21 +194,27 @@ async function safeLoadSource(source, options) {
 }
 
 app.get("/api/hot", async (req, res) => {
-  const refresh = shouldRefresh(req, "all");
+  const refresh = await shouldRefresh(req, "all");
   const q = String(req.query.q || "").trim();
   if (req.refreshLimited) {
     res.set("x-refresh-limited", String(refreshCooldownSec));
   }
+
   const platforms = await Promise.all(
     sourceOrder.map((source) => safeLoadSource(source, { refresh, q })),
   );
 
-  res.json({ platforms, ttlSec, statuses: getSourceStatuses(sourceOrder) });
+  res.json({
+    platforms,
+    ttlSec,
+    statuses: await getSourceStatuses(sourceOrder),
+    storage: getStoreInfo(),
+  });
 });
 
 app.get("/api/hot/:source", async (req, res) => {
   const source = req.params.source;
-  const refresh = shouldRefresh(req, source);
+  const refresh = await shouldRefresh(req, source);
   const q = String(req.query.q || "").trim();
   if (req.refreshLimited) {
     res.set("x-refresh-limited", String(refreshCooldownSec));
@@ -231,7 +225,7 @@ app.get("/api/hot/:source", async (req, res) => {
     res.json(platform);
   } catch (error) {
     if (error.status !== 404) {
-      const snapshot = getLatestSnapshot(source);
+      const snapshot = await getLatestSnapshot(source);
 
       if (snapshot) {
         res.json(attachSourceStrategy(source, ensurePlatformLinks(snapshot)));
@@ -252,17 +246,18 @@ app.get("/api/hot/:source", async (req, res) => {
   }
 });
 
-app.get("/api/archive", (req, res) => {
+app.get("/api/archive", async (req, res) => {
   const source = String(req.query.source || "").trim();
   const date = String(req.query.date || "").trim();
   const range = String(req.query.range || "today").trim();
-  res.json(getArchive({ source, date, range }));
+  res.json(await getArchive({ source, date, range }));
 });
 
-app.get("/api/status", (_req, res) => {
+app.get("/api/status", async (_req, res) => {
   res.json({
     ttlSec,
-    statuses: getSourceStatuses(sourceOrder),
+    statuses: await getSourceStatuses(sourceOrder),
+    storage: getStoreInfo(),
   });
 });
 

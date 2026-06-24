@@ -5,7 +5,7 @@
 - 前端：React + TypeScript + Vite + CSS
 - 后端：Node.js + Express
 - 数据：公开 JSON 接口、公开页面解析、第三方聚合 API、历史快照、离线占位示例
-- 缓存：内存 Map，每个平台独立缓存，默认 TTL 600 秒
+- 缓存：Vercel KV / Upstash Redis 共享存储优先；本地开发无配置时回退内存，默认 TTL 600 秒
 - 部署：Vercel 前端项目 + Vercel Express 后端项目；国内公网入口使用飞书妙搭静态托管
 
 ## 架构
@@ -15,7 +15,7 @@
   -> Vercel 前端 / 飞书妙搭静态入口
   -> VITE_API_BASE 指向 Vercel Express 后端
   -> /api/hot / /api/hot/:source / /api/sources
-  -> 内存缓存与刷新冷却
+  -> 共享 KV/Redis 缓存、刷新冷却与归档
   -> 各平台公开接口 / 页面解析 / 第三方聚合源
   -> 历史快照或离线占位示例兜底
   -> 统一 HotPlatform JSON
@@ -89,19 +89,19 @@
 
 ## 缓存与刷新
 
-- 缓存 key：`hot:${source}:q=${q}`
+- 缓存 key：`cache:hot:${source}:q=${q}`，实际写入时会自动加 `STORE_KEY_PREFIX`
 - 默认 TTL：`CACHE_TTL=600`
-- `?refresh=1` 可请求刷新，但受冷却限制。
-- 刷新冷却使用平台可信 IP 头（如 `x-vercel-forwarded-for` / `x-real-ip`），避免直接信任客户端可伪造的 `x-forwarded-for`。
+- `?refresh=1` 可请求刷新，但受共享刷新锁限制。
+- 刷新冷却使用平台可信 IP 头（如 `x-vercel-forwarded-for` / `x-real-ip`），并通过 Redis `SET NX EX` / KV 共享锁记录，避免 Serverless 多实例绕过冷却。
 - 单个平台失败只返回该平台的降级状态，不影响其他平台。
 
 ## 归档策略
 
 当前归档用于保存轻量历史快照和页面状态说明：
 
-- 本地或长驻 Node 环境：异步节流写入 `server/data/archive.json`。
-- Vercel Serverless：不写本地文件，只保留本实例内临时快照，并在 `/api/archive` 标记 `persistent: false`。
-- 如果后续要做真正的历史趋势，应迁移到 KV、Redis、对象存储或数据库。
+- 线上：配置 `KV_REST_API_URL` + `KV_REST_API_TOKEN` 或 `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` 后，按日期和来源分 key 写入共享 KV/Redis。
+- 本地或长驻 Node 环境：无共享存储配置时，异步节流写入 `server/data/archive.json`。
+- Vercel Serverless：未配置共享存储时不写本地文件，只保留本实例内临时快照，并在 `/api/archive` 标记 `persistent: false`。
 
 ## 前端交互
 
@@ -116,6 +116,6 @@
 ## 部署注意事项
 
 - Vercel 前端项目需要设置 `VITE_API_BASE=https://today-hotsearch-home-server.vercel.app`。
-- Vercel 后端项目需要设置 `CLIENT_ORIGIN`、`CACHE_TTL`、`USE_CN_LINKS`、`HUGGINGFACE_CN_BASE`、`GITHUB_CN_BASE` 等变量。
+- Vercel 后端项目需要设置 `CLIENT_ORIGIN`、`CACHE_TTL`、`USE_CN_LINKS`、`HUGGINGFACE_CN_BASE`、`GITHUB_CN_BASE`，以及 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 或 Upstash Redis 对应变量。
 - 飞书妙搭发布前必须带 `VITE_API_BASE` 构建 `client/dist`。
 - `.env`、`node_modules`、`client/dist` 不提交到 GitHub。

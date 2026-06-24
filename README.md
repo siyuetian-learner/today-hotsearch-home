@@ -13,7 +13,7 @@
 - 前端：React + TypeScript + Vite + CSS
 - 后端：Node.js + Express
 - 数据：微博、百度、知乎、B站、抖音、今日头条、36氪、IT之家、AI HOT、Hugging Face、GitHub、Hacker News 共 12 个来源
-- 缓存与归档：每个平台独立缓存，默认 600 秒；保存最近 7 天轻量快照，并提供数据状态
+- 缓存与归档：优先使用 Vercel KV / Upstash Redis 共享存储；每个平台独立缓存，默认 600 秒；保存最近 7 天轻量快照，并提供数据状态
 - 体验：分类 Tab、搜索、刷新、单卡重试、展开 Top 10、速读模式、热点详情抽屉、我的首页平台隐藏、数据状态条
 - 视觉：参考 WIRED 科技媒体的黑白高对比报刊风（详见 `DESIGN.md`），方角、细分隔线、强标题层级，保留高信息密度与移动端单列布局
 - 公网入口：飞书妙搭发布的静态入口，构建时注入 `VITE_API_BASE` 后默认拉取 Vercel 后端实时数据；仅在后端不可达时回退到标注清晰的「离线占位示例」（占位标题为中性文案，不指向具体真实事件），适合分享给国内用户
@@ -110,9 +110,13 @@ GET /api/sources
 |变量|默认值|说明|
 |---|---:|---|
 |PORT|3001|后端端口|
-|CACHE_TTL|600|缓存秒数|
-|CACHE_MAX_ENTRIES|200|内存缓存最多保留条目数，防止长时间运行占用过多内存|
+|CACHE_TTL|600|热点缓存秒数|
 |REFRESH_COOLDOWN_SEC|60|`?refresh=1` 强制刷新冷却秒数，避免公开接口被频繁刷新|
+|STORE_KEY_PREFIX|today-hotsearch|共享 KV/Redis key 前缀，用于隔离不同项目|
+|KV_REST_API_URL|空|Vercel KV REST 地址；线上建议必填|
+|KV_REST_API_TOKEN|空|Vercel KV REST Token；线上建议必填|
+|UPSTASH_REDIS_REST_URL|空|Upstash Redis REST 地址；不用 Vercel KV 时填写|
+|UPSTASH_REDIS_REST_TOKEN|空|Upstash Redis REST Token；不用 Vercel KV 时填写|
 |CLIENT_ORIGIN|内置本地、Vercel、妙搭域名|CORS 白名单，生产可用逗号追加前端域名|
 |USE_CN_LINKS|1|默认使用国内入口链接|
 |HUGGINGFACE_CN_BASE|https://hf-mirror.com|Hugging Face 国内入口|
@@ -156,7 +160,7 @@ npm run dev:server
 
 ## 归档说明
 
-当前归档是后端本地轻量 JSON 快照。普通 Node 服务器可以持久保留最近 7 天；Vercel Serverless 文件系统不保证持久写入，因此线上会在 `/api/archive` 和页面状态条中标记「临时归档」。如果后续要做真正的历史趋势，应迁移到 Redis、Upstash KV、Vercel KV 或数据库。
+当前归档优先写入 Vercel KV / Upstash Redis 共享存储，缓存、刷新冷却和最近 7 天快照都可以跨 Serverless 实例复用。未配置 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 或 `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` 时，本地开发会退回内存和本地轻量 JSON 文件；Vercel Serverless 在未配置共享存储时只能保留本实例临时快照。
 
 ## 部署
 

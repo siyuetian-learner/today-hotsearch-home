@@ -1,24 +1,28 @@
 const fs = require("fs");
 const path = require("path");
+const {
+  addSetMember,
+  getJson,
+  getSetMembers,
+  getStoreInfo,
+  hasSharedStore,
+  setJson,
+} = require("./shared-store");
 
 const archiveDir = path.resolve(__dirname, "..", "data");
 const archiveFile = path.resolve(archiveDir, "archive.json");
 const maxDays = Number(process.env.ARCHIVE_DAYS || 7);
 const timezoneOffsetHours = Number(process.env.ARCHIVE_TIMEZONE_OFFSET || 8);
-
+const archiveTtlSec = Number(process.env.ARCHIVE_TTL_SEC || (maxDays + 2) * 24 * 60 * 60);
+const localWriteDebounceMs = Number(process.env.ARCHIVE_WRITE_DEBOUNCE_MS || 2000);
 const isServerless = process.env.VERCEL === "1";
 
-let archive = readArchive();
-const statuses = new Map();
-let archivePersistent = !isServerless;
-let archiveMessage = archivePersistent
-  ? "当前运行环境支持本地轻量快照。"
-  : "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
-
+let localArchive = readLocalArchive();
+const localStatuses = new Map();
 let pendingWriteTimer = null;
 let writeInFlight = false;
 
-function readArchive() {
+function readLocalArchive() {
   try {
     if (!fs.existsSync(archiveFile)) {
       return { snapshots: {} };
@@ -30,59 +34,40 @@ function readArchive() {
   }
 }
 
-// Serverless（如 Vercel）文件系统不可持久、且实例随时回收，落盘没有意义还浪费 IO，
-// 因此直接跳过磁盘写，只在内存里保留本实例快照。
-// 本地 / 长驻 Node 环境改为「节流 + 异步」写盘，避免每次成功抓取都同步
-// writeFileSync 阻塞事件循环（原实现高频抓取时会明显拖慢响应）。
-const ARCHIVE_WRITE_DEBOUNCE_MS = Number(process.env.ARCHIVE_WRITE_DEBOUNCE_MS || 2000);
-
-function flushArchive() {
-  if (writeInFlight) {
-    // 上一次写入还没完成，稍后再排一次，避免并发写同一文件。
-    scheduleArchiveWrite();
-    return;
+function storageMessage() {
+  if (hasSharedStore()) {
+    return "当前使用共享 KV/Redis 保存缓存、刷新冷却和历史快照，可跨 Serverless 实例复用。";
   }
 
-  writeInFlight = true;
-  const payload = JSON.stringify(archive);
-
-  fs.promises
-    .mkdir(archiveDir, { recursive: true })
-    .then(() => fs.promises.writeFile(archiveFile, payload, "utf8"))
-    .then(() => {
-      archivePersistent = true;
-      archiveMessage = "当前运行环境支持本地轻量快照。";
-    })
-    .catch(() => {
-      archivePersistent = false;
-      archiveMessage = "当前运行环境无法写入归档文件，历史快照仅作本实例内临时参考。";
-    })
-    .finally(() => {
-      writeInFlight = false;
-    });
-}
-
-function scheduleArchiveWrite() {
-  if (pendingWriteTimer) return;
-  pendingWriteTimer = setTimeout(() => {
-    pendingWriteTimer = null;
-    flushArchive();
-  }, ARCHIVE_WRITE_DEBOUNCE_MS);
-  // 不阻止进程退出（脚本 / 短命进程场景）。
-  if (typeof pendingWriteTimer.unref === "function") {
-    pendingWriteTimer.unref();
-  }
-}
-
-function persistArchive() {
   if (isServerless) {
-    // 内存态已更新，Serverless 不落盘；状态保持「临时归档」。
-    archivePersistent = false;
-    archiveMessage = "当前 Serverless 环境不保证持久归档，历史快照仅作本实例内临时参考。";
-    return;
+    return "当前 Serverless 环境未配置共享 KV/Redis，历史快照仅作本实例内临时参考。";
   }
 
-  scheduleArchiveWrite();
+  return "当前运行环境使用本地轻量快照文件。";
+}
+
+function archivePersistent() {
+  return hasSharedStore() || !isServerless;
+}
+
+function dateSetKey() {
+  return "archive:dates";
+}
+
+function sourceSetKey(dateKey) {
+  return `archive:sources:${dateKey}`;
+}
+
+function snapshotKey(dateKey, source) {
+  return `archive:snapshot:${dateKey}:${source}`;
+}
+
+function statusKey(source) {
+  return `status:${source}`;
+}
+
+function statusSourceSetKey() {
+  return "status:sources";
 }
 
 function toDateKey(value = new Date()) {
@@ -96,12 +81,12 @@ function previousDateKey(daysAgo) {
   return toDateKey(date);
 }
 
-function pruneArchive() {
+function pruneLocalArchive() {
   const keep = new Set(Array.from({ length: maxDays }, (_item, index) => previousDateKey(index)));
 
-  for (const dateKey of Object.keys(archive.snapshots)) {
+  for (const dateKey of Object.keys(localArchive.snapshots)) {
     if (!keep.has(dateKey)) {
-      delete archive.snapshots[dateKey];
+      delete localArchive.snapshots[dateKey];
     }
   }
 }
@@ -113,19 +98,83 @@ function clonePlatform(platform) {
   };
 }
 
-function recordSnapshot(platform, meta = {}) {
+function staleSnapshot(snapshot) {
+  return {
+    ...clonePlatform(snapshot),
+    degraded: true,
+    dataState: "stale",
+    message: "实时接口暂不可用，已展示最近一次成功快照。",
+  };
+}
+
+function scheduleLocalArchiveWrite() {
+  if (isServerless || hasSharedStore() || pendingWriteTimer) return;
+
+  pendingWriteTimer = setTimeout(() => {
+    pendingWriteTimer = null;
+    flushLocalArchive();
+  }, localWriteDebounceMs);
+
+  if (typeof pendingWriteTimer.unref === "function") {
+    pendingWriteTimer.unref();
+  }
+}
+
+function flushLocalArchive() {
+  if (writeInFlight) {
+    scheduleLocalArchiveWrite();
+    return;
+  }
+
+  writeInFlight = true;
+  const payload = JSON.stringify(localArchive);
+
+  fs.promises
+    .mkdir(archiveDir, { recursive: true })
+    .then(() => fs.promises.writeFile(archiveFile, payload, "utf8"))
+    .catch((error) => {
+      console.warn(`[archive] local archive write failed: ${error.message}`);
+    })
+    .finally(() => {
+      writeInFlight = false;
+    });
+}
+
+function normalizeStatus(source, status) {
+  return {
+    source,
+    status: status.status || "unknown",
+    message: status.message || "",
+    itemCount: Number(status.itemCount || 0),
+    updatedAt: status.updatedAt || new Date().toISOString(),
+    durationMs: status.durationMs,
+  };
+}
+
+async function recordStatus(source, status) {
+  const normalized = normalizeStatus(source, status);
+
+  if (hasSharedStore()) {
+    await setJson(statusKey(source), normalized, archiveTtlSec);
+    await addSetMember(statusSourceSetKey(), source, archiveTtlSec);
+    return;
+  }
+
+  localStatuses.set(source, normalized);
+}
+
+async function recordSnapshot(platform, meta = {}) {
   if (!platform || platform.error || !platform.items?.length) {
     return;
   }
 
   const dateKey = toDateKey(platform.updatedAt || new Date());
-  archive.snapshots[dateKey] ||= {};
-  archive.snapshots[dateKey][platform.source] = {
+  const snapshot = {
     ...clonePlatform(platform),
     archivedAt: new Date().toISOString(),
   };
 
-  recordStatus(platform.source, {
+  await recordStatus(platform.source, {
     status: platform.degraded ? "degraded" : meta.status || "success",
     message: platform.message || meta.message || "",
     itemCount: platform.items.length,
@@ -133,34 +182,39 @@ function recordSnapshot(platform, meta = {}) {
     durationMs: meta.durationMs,
   });
 
-  pruneArchive();
-  persistArchive();
+  if (hasSharedStore()) {
+    await setJson(snapshotKey(dateKey, platform.source), snapshot, archiveTtlSec);
+    await addSetMember(dateSetKey(), dateKey, archiveTtlSec);
+    await addSetMember(sourceSetKey(dateKey), platform.source, archiveTtlSec);
+    return;
+  }
+
+  localArchive.snapshots[dateKey] ||= {};
+  localArchive.snapshots[dateKey][platform.source] = snapshot;
+  pruneLocalArchive();
+  scheduleLocalArchiveWrite();
 }
 
-function recordStatus(source, status) {
-  statuses.set(source, {
-    source,
-    status: status.status || "unknown",
-    message: status.message || "",
-    itemCount: Number(status.itemCount || 0),
-    updatedAt: status.updatedAt || new Date().toISOString(),
-    durationMs: status.durationMs,
-  });
-}
+async function getLatestSnapshot(source) {
+  if (hasSharedStore()) {
+    const dates = (await getSetMembers(dateSetKey())).sort().reverse();
 
-function getLatestSnapshot(source) {
-  const dates = Object.keys(archive.snapshots).sort().reverse();
+    for (const dateKey of dates) {
+      const snapshot = await getJson(snapshotKey(dateKey, source));
+      if (snapshot) {
+        return staleSnapshot(snapshot);
+      }
+    }
+
+    return null;
+  }
+
+  const dates = Object.keys(localArchive.snapshots).sort().reverse();
 
   for (const dateKey of dates) {
-    const snapshot = archive.snapshots[dateKey]?.[source];
-
+    const snapshot = localArchive.snapshots[dateKey]?.[source];
     if (snapshot) {
-      return {
-        ...clonePlatform(snapshot),
-        degraded: true,
-        dataState: "stale",
-        message: "实时接口暂不可用，已展示最近一次成功快照。",
-      };
+      return staleSnapshot(snapshot);
     }
   }
 
@@ -174,15 +228,13 @@ function resolveArchiveDates({ date, range }) {
   return [previousDateKey(0)];
 }
 
-function getArchive({ source = "", date = "", range = "today" } = {}) {
-  const dates = resolveArchiveDates({ date, range });
+async function getSharedArchiveForDate(dateKey, source) {
+  const sources = source ? [source] : await getSetMembers(sourceSetKey(dateKey));
   const snapshots = [];
 
-  for (const dateKey of dates) {
-    const daily = archive.snapshots[dateKey] || {};
-    const platforms = source ? [daily[source]].filter(Boolean) : Object.values(daily);
-
-    for (const platform of platforms) {
+  for (const currentSource of sources) {
+    const platform = await getJson(snapshotKey(dateKey, currentSource));
+    if (platform) {
       snapshots.push({
         date: dateKey,
         platform: clonePlatform(platform),
@@ -190,29 +242,66 @@ function getArchive({ source = "", date = "", range = "today" } = {}) {
     }
   }
 
+  return snapshots;
+}
+
+async function getArchive({ source = "", date = "", range = "today" } = {}) {
+  const dates = resolveArchiveDates({ date, range });
+  const snapshots = [];
+
+  if (hasSharedStore()) {
+    for (const dateKey of dates) {
+      snapshots.push(...(await getSharedArchiveForDate(dateKey, source)));
+    }
+  } else {
+    for (const dateKey of dates) {
+      const daily = localArchive.snapshots[dateKey] || {};
+      const platforms = source ? [daily[source]].filter(Boolean) : Object.values(daily);
+
+      for (const platform of platforms) {
+        snapshots.push({
+          date: dateKey,
+          platform: clonePlatform(platform),
+        });
+      }
+    }
+  }
+
   return {
     dates,
     snapshots,
     count: snapshots.length,
-    persistent: archivePersistent,
-    message: archiveMessage,
+    persistent: archivePersistent(),
+    message: storageMessage(),
+    storage: getStoreInfo(),
   };
 }
 
-function getSourceStatuses(sourceOrder = []) {
-  const known = sourceOrder.length ? sourceOrder : Array.from(statuses.keys());
+async function getSourceStatuses(sourceOrder = []) {
+  let known = sourceOrder;
 
-  return known.map((source) => {
-    return (
-      statuses.get(source) || {
+  if (!known.length && hasSharedStore()) {
+    known = await getSetMembers(statusSourceSetKey());
+  } else if (!known.length) {
+    known = Array.from(localStatuses.keys());
+  }
+
+  const statuses = [];
+
+  for (const source of known) {
+    const status = hasSharedStore() ? await getJson(statusKey(source)) : localStatuses.get(source);
+    statuses.push(
+      status || {
         source,
         status: "idle",
         message: "尚未抓取",
         itemCount: 0,
         updatedAt: "",
-      }
+      },
     );
-  });
+  }
+
+  return statuses;
 }
 
 module.exports = {
