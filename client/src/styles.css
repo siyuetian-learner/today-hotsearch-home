@@ -1485,20 +1485,27 @@ h1 {
   white-space: nowrap;
 }
 
-.topic small,
-.access-links {
-  display: block;
+.topic small {
+  display: -webkit-box;
   margin-top: 4px;
+  overflow: hidden;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
   overflow-wrap: anywhere;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .access-links {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .access-links a {
@@ -1522,7 +1529,7 @@ h1 {
 }
 
 .board.has-long-metrics .title-button {
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow-wrap: anywhere;
 }
 
@@ -1911,6 +1918,10 @@ summary:focus-visible,
 
   .hot-item {
     grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .topic small {
+    -webkit-line-clamp: 4;
   }
 
   .metric {
