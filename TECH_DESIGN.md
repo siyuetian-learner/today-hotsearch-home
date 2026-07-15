@@ -74,7 +74,7 @@
 |---|---|---|
 | weibo | 微博公开 JSON / 公开页面兜底 | 历史快照或离线占位 |
 | baidu | 第三方聚合 API / 公开页面解析 | 历史快照或离线占位 |
-| zhihu | 第三方聚合 API / 公开页面解析 | 历史快照或离线占位 |
+| zhihu | `www.zhihu.com/api/v3/feed/topstory/hot-list-web` 主接口；`api.zhihu.com/topstory/hot-lists/total` 备接口 | 第三方聚合、共享历史快照，最终返回明确错误态 |
 | bilibili | B站热词 JSON | 历史快照或离线占位 |
 | douyin | 第三方聚合 API / 公开页面解析 | 历史快照或离线占位 |
 | toutiao | 第三方聚合 API / 公开页面解析 | 历史快照或离线占位 |
@@ -86,6 +86,16 @@
 | hackernews | Hacker News 官方 API | 历史快照或离线占位 |
 
 离线占位数据只用于「实时接口、历史快照都不可用」时避免白屏。占位标题必须保持中性，例如「示例 · 某 AI 工具类话题」，不得伪装成真实热点。
+
+### 知乎实时链路（2026-07-15）
+
+- 主接口：`https://www.zhihu.com/api/v3/feed/topstory/hot-list-web?limit=20&desktop=true`。
+- 备接口：`https://api.zhihu.com/topstory/hot-lists/total?limit=50`。
+- 主接口映射 `target.title_area.text`、`excerpt_area.text`、`metrics_area.text`、`link.url`。
+- 备接口映射 `target.title`、`target.excerpt`、`detail_text` 和问题 ID。
+- 两个官方 JSON 端点失败后才尝试 `ZHIHU_HOT_APIS` 配置的第三方聚合接口。
+- 采集函数只返回实时结果或抛错；统一的 `safeLoadSource` 负责读取 Upstash Redis / 本地归档中的最近成功快照。这样快照状态统一为 `cached`，不会与实时状态混淆。
+- 生产环境不再创建知乎硬编码示例；没有快照时返回空错误态，避免误导用户。
 
 ## 缓存与刷新
 

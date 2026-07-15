@@ -1,191 +1,195 @@
-const { fetchJson, fetchText } = require("./http");
+const { fetchJson } = require("./http");
 
-const fallbackItems = [
-  ["如何看待 AI 编程工具进入日常开发", "356.2万", "AI 工具进入真实工作流的讨论持续升温。"],
-  ["普通人怎样建立长期稳定的阅读习惯", "338.7万", "学习成长类话题长期在知乎保持讨论热度。"],
-  ["年轻人存钱变难了吗", "286.1万", "消费、收入和长期规划相关问题受到关注。"],
-  ["高效远程协作需要哪些基本规范", "263.8万", "远程办公和团队协作方式继续演进。"],
-  ["什么样的简历更容易被看见", "241.4万", "求职季职业发展讨论热度较高。"],
-  ["城市通勤时间会影响幸福感吗", "226.9万", "城市生活体验和通勤成本受到关注。"],
-  ["夏季运动如何避免过度疲劳", "208.6万", "健康生活类问题进入高频讨论。"],
-  ["如何评价最近的国产动画电影", "184.3万", "内容产业和国漫作品讨论增加。"],
-  ["厨房小家电哪些是真的实用", "162.5万", "消费决策类问题适合知乎长讨论。"],
-  ["AI 时代还需要学习编程基础吗", "151.8万", "技术教育和职业转型相关话题。"],
-];
+const DEFAULT_WEB_API =
+  "https://www.zhihu.com/api/v3/feed/topstory/hot-list-web?limit=20&desktop=true";
+const DEFAULT_MOBILE_API = "https://api.zhihu.com/topstory/hot-lists/total?limit=50";
 
-function normalizeFromUnknown(data) {
-  const rawList =
-    data?.data?.items ||
-    data?.data?.list ||
-    data?.data ||
-    data?.result ||
-    data?.list ||
+function text(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function questionIdFrom(value) {
+  const match = String(value || "").match(/questions?\/(\d+)|question\/(\d+)|(\d+)$/);
+  return match?.[1] || match?.[2] || match?.[3] || "";
+}
+
+function questionUrl(id, fallback = "") {
+  if (id) return `https://www.zhihu.com/question/${id}`;
+  if (/^https?:\/\//i.test(fallback)) return fallback;
+  return "";
+}
+
+function normalizeZhihuWebItems(payload) {
+  const list = Array.isArray(payload?.data) ? payload.data : [];
+
+  return list
+    .map((entry) => {
+      const target = entry?.target || {};
+      const rawUrl = text(target.link?.url);
+      const id = questionIdFrom(rawUrl || entry?.card_id || entry?.id);
+      const title = text(target.title_area?.text);
+
+      return {
+        id,
+        title,
+        summary: text(target.excerpt_area?.text),
+        heat: text(target.metrics_area?.text) || "知乎热榜",
+        url: questionUrl(id, rawUrl),
+      };
+    })
+    .filter((item) => item.title && item.url);
+}
+
+function normalizeZhihuApiItems(payload) {
+  const list = Array.isArray(payload?.data) ? payload.data : [];
+
+  return list
+    .map((entry) => {
+      const target = entry?.target || {};
+      const id = String(target.id || questionIdFrom(target.url)).trim();
+      const title = text(target.title);
+
+      return {
+        id,
+        title,
+        summary: text(target.excerpt),
+        heat: text(entry?.detail_text) || "知乎热榜",
+        url: questionUrl(id, text(target.url)),
+      };
+    })
+    .filter((item) => item.title && item.url);
+}
+
+function normalizeAggregateItems(payload) {
+  const list =
+    payload?.data?.items ||
+    payload?.data?.list ||
+    payload?.data ||
+    payload?.result ||
+    payload?.list ||
     [];
 
-  return Array.isArray(rawList) ? rawList : [];
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((entry) => {
+      const target = entry?.target || {};
+      const title = text(entry?.title || entry?.name || entry?.word || target?.title);
+      const rawUrl = text(entry?.url || entry?.link || entry?.mobileUrl || target?.url);
+      const id = String(entry?.id || target?.id || questionIdFrom(rawUrl)).trim();
+
+      return {
+        id,
+        title,
+        summary: text(entry?.summary || entry?.desc || entry?.excerpt || target?.excerpt),
+        heat: entry?.heat || entry?.hot || entry?.metrics || entry?.detail_text || "知乎热榜",
+        url: questionUrl(id, rawUrl) || `https://www.zhihu.com/search?q=${encodeURIComponent(title)}`,
+      };
+    })
+    .filter((item) => item.title && item.url);
 }
 
-function pickTitle(item) {
-  return (
-    item.title ||
-    item.name ||
-    item.word ||
-    item.hotTitle ||
-    item.question?.title ||
-    item.target?.title ||
-    item.target?.question?.title ||
-    "未命名知乎话题"
-  );
+function dedupeItems(items) {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const titleKey = item.title.replace(/[\s\p{P}\p{S}]+/gu, "").toLowerCase();
+    const key = item.id ? `id:${item.id}` : `title:${titleKey}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
-function pickUrl(item, title) {
-  return (
-    item.url ||
-    item.link ||
-    item.mobileUrl ||
-    item.target?.url ||
-    item.question?.url ||
-    `https://www.zhihu.com/search?q=${encodeURIComponent(title)}`
-  );
-}
-
-function decodeHtml(value = "") {
-  return String(value)
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#x2F;/g, "/");
-}
-
-function extractJsonBlock(html) {
-  const patterns = [
-    /<script[^>]+id=["']js-initialData["'][^>]*>([\s\S]*?)<\/script>/i,
-    /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
-    /window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});\s*<\/script>/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-
-    if (match?.[1]) {
-      return JSON.parse(decodeHtml(match[1]).trim());
-    }
-  }
-
-  return null;
-}
-
-function collectZhihuHotItems(value, items = []) {
-  if (!value || items.length >= 24) return items;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectZhihuHotItems(item, items);
-      if (items.length >= 24) break;
-    }
-    return items;
-  }
-
-  if (typeof value !== "object") return items;
-
-  const maybeTitle = pickTitle(value);
-  if (maybeTitle && maybeTitle !== "未命名知乎话题") {
-    items.push(value);
-  }
-
-  for (const nested of Object.values(value)) {
-    collectZhihuHotItems(nested, items);
-    if (items.length >= 24) break;
-  }
-
-  return items;
-}
-
-async function fetchZhihuHotPage() {
-  const pageUrl = process.env.ZHIHU_HOT_PAGE || "https://www.zhihu.com/billboard";
-  const html = await fetchText(pageUrl, { timeoutMs: 8000 });
-  const json = extractJsonBlock(html);
-  const list = collectZhihuHotItems(json);
-
-  if (!list.length) {
-    throw new Error("empty zhihu page hot list");
-  }
-
-  return list;
-}
-
-async function fetchZhihuHot({ q = "" } = {}) {
-  const apis = [
+function configuredAggregateApis() {
+  return [
     ...String(process.env.ZHIHU_HOT_APIS || "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),
-    process.env.ZHIHU_HOT_API || "https://api-hot.imsyy.top/zhihu",
-    "https://hot.baiwumm.com/api/zhihu",
+    process.env.ZHIHU_HOT_API || "",
   ].filter((value, index, list) => value && list.indexOf(value) === index);
-  let list = [];
-  let degraded = false;
-  let message;
-  let accessMode = "第三方聚合接口";
-  let sample = false;
+}
 
-  for (const api of apis) {
-    try {
-      const data = await fetchJson(api);
-      list = normalizeFromUnknown(data);
-      if (!list.length) {
-        throw new Error("empty zhihu hot list");
+function createZhihuFetcher({ fetchJsonImpl = fetchJson, aggregateApis } = {}) {
+  return async function fetchZhihuHot({ q = "" } = {}) {
+    const sources = [
+      {
+        url: process.env.ZHIHU_WEB_API || DEFAULT_WEB_API,
+        normalize: normalizeZhihuWebItems,
+        accessMode: "知乎实时热榜 JSON",
+      },
+      {
+        url: process.env.ZHIHU_MOBILE_API || DEFAULT_MOBILE_API,
+        normalize: normalizeZhihuApiItems,
+        accessMode: "知乎移动端热榜 JSON",
+      },
+      ...(aggregateApis ?? configuredAggregateApis()).map((url) => ({
+        url,
+        normalize: normalizeAggregateItems,
+        accessMode: "第三方聚合接口",
+      })),
+    ];
+
+    const errors = [];
+
+    for (const source of sources) {
+      try {
+        const payload = await fetchJsonImpl(source.url, {
+          timeoutMs: 8000,
+          headers: {
+            referer: "https://www.zhihu.com/hot",
+            origin: "https://www.zhihu.com",
+            "accept-language": "zh-CN,zh;q=0.9",
+          },
+        });
+        const normalized = dedupeItems(source.normalize(payload));
+        if (!normalized.length) throw new Error("empty hot list");
+
+        const keyword = String(q || "").trim().toLowerCase();
+        const filtered = keyword
+          ? normalized.filter(
+              (item) =>
+                item.title.toLowerCase().includes(keyword) ||
+                item.summary.toLowerCase().includes(keyword),
+            )
+          : normalized;
+
+        return {
+          source: "zhihu",
+          sourceName: "知乎热榜",
+          listName: "讨论热度榜",
+          updatedAt: new Date().toISOString(),
+          degraded: false,
+          dataState: "live",
+          accessMode: source.accessMode,
+          sample: false,
+          items: filtered.slice(0, 10).map((item, index) => ({
+            rank: index + 1,
+            title: item.title,
+            heat: item.heat,
+            url: item.url,
+            summary: item.summary,
+            sample: false,
+          })),
+        };
+      } catch (error) {
+        errors.push(`${source.url}: ${error.message}`);
       }
-      accessMode = api.includes("baiwumm") ? "知乎公开聚合 JSON" : "第三方聚合接口";
-      break;
-    } catch {
-      list = [];
     }
-  }
 
-  if (!list.length) {
-    try {
-      list = await fetchZhihuHotPage();
-      degraded = true;
-      accessMode = "公开页面解析";
-      message = "知乎官方接口需要认证，第三方接口暂不可用，已尝试解析公开热榜页面。";
-    } catch {
-      degraded = true;
-      sample = true;
-      accessMode = "内置离线样例";
-      message = "知乎官方接口需要认证，第三方接口和公开页面暂不可用，已切换为知乎示例热榜。";
-      list = fallbackItems.map(([title, heat, summary]) => ({ title, heat, summary }));
-    }
-  }
-
-  const filtered = q ? list.filter((item) => pickTitle(item).includes(q)) : list;
-
-  return {
-    source: "zhihu",
-    sourceName: "知乎热榜",
-    listName: degraded ? `知乎热榜（${accessMode}）` : "讨论热度榜",
-    updatedAt: new Date().toISOString(),
-    degraded,
-    dataState: degraded ? "offline" : "live",
-    message,
-    accessMode,
-    sample,
-    items: filtered.slice(0, 10).map((item, index) => {
-      const title = pickTitle(item);
-      return {
-        rank: index + 1,
-        title,
-        heat: sample ? "示例热度" : item.heat || item.hot || item.metrics || item.excerpt || "热榜",
-        url: pickUrl(item, title),
-        summary: item.summary || item.desc || item.excerpt || item.answer_count_text || "",
-        sample,
-      };
-    }),
+    const error = new Error("知乎实时热榜暂不可用，请使用最近成功快照。");
+    error.causes = errors;
+    throw error;
   };
 }
 
+const fetchZhihuHot = createZhihuFetcher();
+
 module.exports = {
+  createZhihuFetcher,
   fetchZhihuHot,
+  normalizeAggregateItems,
+  normalizeZhihuApiItems,
+  normalizeZhihuWebItems,
 };

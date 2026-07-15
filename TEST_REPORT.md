@@ -78,11 +78,16 @@ docs/evidence/miaoda-public-homepage.png
 ```
 
 ```text
+GET http://127.0.0.1:3017/api/hot/zhihu?refresh=1
+结果（2026-07-15）：
+- zhihu: 10 条，`dataState=live`，`sample=false`
+- accessMode: `知乎实时热榜 JSON`
+- 首条包含知乎问题链接、平台热度文字和摘要
+- 主接口失败时会自动切换 `api.zhihu.com` 备接口；全源失败时交由共享历史快照兜底
+
 GET http://127.0.0.1:3001/api/hot?refresh=1
 结果：
 - weibo: 10 条，真实接口
-- zhihu: 10 条，第三方接口不可用时降级
-- zhihu: 第三方接口不可用时，先尝试公开页面解析，再切换离线样例
 - bilibili: 10 条，真实接口
 - huggingface: 10 条，直连失败时国内入口推荐
 - aihot: 10 条，真实接口
@@ -137,11 +142,12 @@ GET http://127.0.0.1:3001/api/archive?range=today
 9. Hacker News 并发过多：限制详情请求数量和超时时间，失败时降级到离线快照。
 10. 归档持久性不透明：`/api/archive` 返回 `persistent/message`，前端状态条显示临时归档。
 11. 无公开 API 站点国内访问不稳定：新增 `/api/sources` 策略层，知乎增加公开页面解析兜底，前端展示采集与国内访问策略。
+12. 知乎长期显示示例：改为两个知乎实时 JSON 端点优先、第三方聚合后备、共享成功快照兜底；生产环境取消硬编码知乎示例。
 
 ## 剩余风险
 
 - 第三方公开接口可能变化。
-- 知乎官方接口需要认证，当前依赖第三方接口和降级数据。
+- 知乎实时 JSON 端点目前可匿名访问，但不是承诺稳定的正式开放 API，仍需双端点和共享快照兜底。
 - GitHub 匿名 Search API 有速率限制。
 - 国内镜像不是官方服务，稳定性可能变化。
 - Vercel Serverless 不适合作为持久归档存储，长期历史趋势需要迁移到 KV 或数据库。

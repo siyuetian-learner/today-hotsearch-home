@@ -27,7 +27,8 @@ GITHUB_CN_BASE=
 GITHUB_TOKEN=
 ZHIHU_HOT_API=https://api-hot.imsyy.top/zhihu
 ZHIHU_HOT_APIS=https://hot.baiwumm.com/api/zhihu,https://api-hot.imsyy.top/zhihu
-ZHIHU_HOT_PAGE=https://www.zhihu.com/billboard
+ZHIHU_WEB_API=https://www.zhihu.com/api/v3/feed/topstory/hot-list-web?limit=20&desktop=true
+ZHIHU_MOBILE_API=https://api.zhihu.com/topstory/hot-lists/total?limit=50
 DAILY_HOT_API_BASE=https://api-hot.imsyy.top
 DAILY_HOT_API_BASES=https://api-hot.imsyy.top
 ARCHIVE_DAYS=7
@@ -113,6 +114,8 @@ lark-cli apps +html-publish --app-id app_4ka0f1un2r5re --path client/dist
 lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --require-login=false
 ```
 
+知乎实时数据由 Vercel 后端统一采集，因此飞书妙搭无需配置知乎 Cookie 或 AI API。妙搭只需重新发布带正确 `VITE_API_BASE` 的静态构建，即可读取更新后的知乎 API。
+
 ## 验收清单
 
 1. GitHub main 分支包含 `client/`、`server/`、文档和 evidence 文件。
@@ -126,6 +129,7 @@ lark-cli apps +access-scope-set --app-id app_4ka0f1un2r5re --scope public --requ
 9. `/api/archive?range=today` 返回 `persistent=true`，并能看到最近快照。
 10. 首页无 CORS 报错，Network 中 `/api/hot` 指向 Vercel 后端。
 11. 妙搭入口无登录拦截，默认显示实时/缓存数据；只有后端不可达时才显示离线占位示例。
+12. `/api/hot/zhihu?refresh=1` 返回 `sample=false`、10 条真实问题链接，并且妙搭入口显示相同榜单。
 
 ## 常见问题
 
