@@ -110,6 +110,64 @@ const geoTokens = [
   "澳门",
 ];
 
+const eventDomains = [
+  {
+    name: "sports",
+    pattern: /比赛|决赛|半决赛|比分|战胜|击败|力克|夺冠|晋级|中场|球员|足球|篮球|网球|nba|世界杯|欧洲杯|联赛|\d+\s*(?:比|:)\s*\d+/i,
+  },
+  {
+    name: "education",
+    pattern: /高考|中考|分数线|录取|招生|考试|志愿|学校|大学|学位|论文/i,
+  },
+  {
+    name: "policy",
+    pattern: /政策|新规|补贴|发布|宣布|实施|征求意见|管理办法|条例/i,
+  },
+  {
+    name: "technology",
+    pattern: /ai|模型|芯片|开源|github|agent|智能体|发布|上线|系统|软件|工具/i,
+  },
+];
+
+const eventStopWords = new Set([
+  "一个",
+  "什么",
+  "怎么",
+  "如何",
+  "为何",
+  "最新",
+  "今日",
+  "回应",
+  "宣布",
+  "发布",
+  "上线",
+  "再现",
+  "世界",
+  "名画",
+  "比赛",
+  "决赛",
+  "半决赛",
+  "中场",
+  "战胜",
+  "击败",
+  "力克",
+  "晋级",
+]);
+
+function getEventDomain(value: string) {
+  return eventDomains.find((domain) => domain.pattern.test(value))?.name || "";
+}
+
+function getSignificantWords(value: string) {
+  const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
+  return new Set(
+    Array.from(segmenter.segment(value))
+      .filter((part) => part.isWordLike)
+      .map((part) => normalizeTitle(part.segment))
+      .filter((word) => word.length >= 2 && !eventStopWords.has(word) && !/^\d+$/.test(word)),
+  );
+}
+
 function extractGeoTokens(value: string) {
   const normalized = normalizeTitle(value);
   return geoTokens.filter((token) => normalized.includes(token));
@@ -142,7 +200,31 @@ function sameTopic(a: string, b: string) {
   }
 
   const overlap = hits / Math.min(leftGrams.size, rightGrams.size);
-  return hits >= 4 && overlap >= 0.52;
+  if (hits >= 4 && overlap >= 0.52) return true;
+
+  const leftDomain = getEventDomain(a);
+  const rightDomain = getEventDomain(b);
+  if (!leftDomain || leftDomain !== rightDomain) return false;
+
+  const leftWords = getSignificantWords(a);
+  const rightWords = getSignificantWords(b);
+  const sharedWords = Array.from(leftWords).filter((word) => rightWords.has(word));
+
+  return sharedWords.some((word) => word.length >= 3) || (sharedWords.length >= 2 && hits >= 2);
+}
+
+export function isEditorialPlatform(board: HotPlatform) {
+  return Boolean(
+    !board.error &&
+      !board.sample &&
+      !board.degraded &&
+      !["offline", "error"].includes(board.dataState || "") &&
+      board.items?.length,
+  );
+}
+
+function isEditorialItem(item: HotItem) {
+  return !item.sample;
 }
 
 function parseHeat(value: HotItem["heat"]) {
@@ -358,7 +440,9 @@ function getClusterRepresentative(cluster: CompositeCluster): RankedHot {
 }
 
 export function buildCompositeRanking(boards: HotPlatform[], limit = 20): RankedHot[] {
-  const candidates = boards.flatMap((board) => (board.items || []).map((item) => ({ board, item })));
+  const candidates = boards
+    .filter(isEditorialPlatform)
+    .flatMap((board) => (board.items || []).filter(isEditorialItem).map((item) => ({ board, item })));
 
   return buildCandidateClusters(candidates)
     .map((cluster) => getClusterRepresentative(cluster))
@@ -370,7 +454,7 @@ export function buildLeadCategories(boards: HotPlatform[]): LeadCategory[] {
   const selectedTopics: RankedHot[] = [];
 
   return categoryConfig.map((category) => {
-    const categoryBoards = boards.filter((board) => category.sources.includes(board.source) && board.items?.length);
+    const categoryBoards = boards.filter((board) => category.sources.includes(board.source) && isEditorialPlatform(board));
     const ranking = buildCompositeRanking(categoryBoards, 8);
     const top =
       ranking.find((entry) =>

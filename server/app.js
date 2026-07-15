@@ -3,6 +3,7 @@ const fs = require("fs");
 const cors = require("cors");
 const express = require("express");
 const { getCache, setCache } = require("./utils/cache");
+const { buildAggregatePayload, getAggregateCacheKey, isAggregateFresh } = require("./utils/aggregate-response");
 const { claimRefreshSlot } = require("./utils/refresh-lock");
 const { getStoreInfo } = require("./utils/shared-store");
 const { ensurePlatformLinks } = require("./utils/source-links");
@@ -25,6 +26,7 @@ const {
 
 const app = express();
 const ttlSec = Number(process.env.CACHE_TTL || 600);
+const aggregateFallbackTtlSec = Number(process.env.AGGREGATE_FALLBACK_TTL || 3600);
 const refreshCooldownSec = Number(process.env.REFRESH_COOLDOWN_SEC || 60);
 const clientDist = path.resolve(__dirname, "..", "client", "dist");
 const clientIndex = path.resolve(clientDist, "index.html");
@@ -45,6 +47,7 @@ const sources = {
 };
 
 const sourceOrder = Object.keys(sources);
+let aggregateRefreshPromise = null;
 
 const defaultOrigins = [
   "http://127.0.0.1:5173",
@@ -134,13 +137,6 @@ async function loadSource(source, { refresh = false, q = "" } = {}) {
         fetchDurationMs: 0,
       };
 
-      await recordStatus(source, {
-        status: "cached",
-        itemCount: cachedPlatform.items?.length || 0,
-        updatedAt: new Date().toISOString(),
-        durationMs: 0,
-      });
-
       return attachSourceStrategy(source, ensurePlatformLinks(cachedPlatform));
     }
   }
@@ -193,6 +189,25 @@ async function safeLoadSource(source, options) {
   }
 }
 
+async function generateAggregate({ refreshSources = false } = {}) {
+  const platforms = await Promise.all(
+    sourceOrder.map((source) => safeLoadSource(source, { refresh: refreshSources, q: "" })),
+  );
+  const payload = buildAggregatePayload(platforms, ttlSec, getStoreInfo());
+  await setCache(getAggregateCacheKey(), payload, aggregateFallbackTtlSec);
+  return payload;
+}
+
+function refreshAggregateInBackground() {
+  if (aggregateRefreshPromise) return;
+
+  aggregateRefreshPromise = generateAggregate({ refreshSources: true })
+    .catch((error) => console.error(`[aggregate refresh] ${error.message}`))
+    .finally(() => {
+      aggregateRefreshPromise = null;
+    });
+}
+
 app.get("/api/hot", async (req, res) => {
   const refresh = await shouldRefresh(req, "all");
   const q = String(req.query.q || "").trim();
@@ -200,16 +215,27 @@ app.get("/api/hot", async (req, res) => {
     res.set("x-refresh-limited", String(refreshCooldownSec));
   }
 
-  const platforms = await Promise.all(
-    sourceOrder.map((source) => safeLoadSource(source, { refresh, q })),
-  );
+  if (!refresh && !q) {
+    const aggregate = await getCache(getAggregateCacheKey());
+    if (aggregate?.platforms?.length) {
+      const fresh = isAggregateFresh(aggregate);
+      if (!fresh) refreshAggregateInBackground();
+      res.set("x-cache", fresh ? "HIT" : "STALE");
+      res.json({ ...aggregate, cacheHit: true, stale: !fresh });
+      return;
+    }
+  }
 
-  res.json({
-    platforms,
-    ttlSec,
-    statuses: await getSourceStatuses(sourceOrder),
-    storage: getStoreInfo(),
-  });
+  const payload = q
+    ? buildAggregatePayload(
+        await Promise.all(sourceOrder.map((source) => safeLoadSource(source, { refresh, q }))),
+        ttlSec,
+        getStoreInfo(),
+      )
+    : await generateAggregate({ refreshSources: refresh });
+
+  res.set("x-cache", "MISS");
+  res.json({ ...payload, cacheHit: false });
 });
 
 app.get("/api/hot/:source", async (req, res) => {

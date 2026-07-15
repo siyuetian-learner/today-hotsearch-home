@@ -286,22 +286,18 @@ async function getSourceStatuses(sourceOrder = []) {
     known = Array.from(localStatuses.keys());
   }
 
-  const statuses = [];
-
-  for (const source of known) {
-    const status = hasSharedStore() ? await getJson(statusKey(source)) : localStatuses.get(source);
-    statuses.push(
-      status || {
+  return Promise.all(
+    known.map(async (source) => {
+      const status = hasSharedStore() ? await getJson(statusKey(source)) : localStatuses.get(source);
+      return status || {
         source,
         status: "idle",
         message: "尚未抓取",
         itemCount: 0,
         updatedAt: "",
-      },
-    );
-  }
-
-  return statuses;
+      };
+    }),
+  );
 }
 
 module.exports = {

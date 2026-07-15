@@ -15,11 +15,9 @@ import {
   sourceLabels,
   sourceOrder,
 } from "./components/config";
-import { FocusPanel } from "./components/FocusPanel";
 import { Footer } from "./components/Footer";
 import { HotCard } from "./components/HotCard";
 import { SourceStatusPanel } from "./components/SourceStatusPanel";
-import { TrendPanel } from "./components/TrendPanel";
 import { WatchPanel } from "./components/WatchPanel";
 import { fallbackHotResponse } from "./data/fallbackHot";
 import type { HotItem, HotPlatform, SourceStatus } from "./types/hot";
@@ -28,13 +26,6 @@ import { buildCompositeRanking, buildLeadCategories, buildShareDigest } from "./
 type ViewMode = "cards" | "reader";
 type ArchiveRange = "today" | "yesterday" | "7d";
 type SelectedHot = { board: HotPlatform; item: HotItem } | null;
-
-const sceneShortcuts = [
-  { label: "大众热点", desc: "微博、百度、知乎、B站、抖音", category: "general" },
-  { label: "AI 与科技", desc: "AI HOT、模型、开源、科技媒体", category: "ai" },
-  { label: "开发者关注", desc: "GitHub、Hacker News、Hugging Face", category: "dev" },
-  { label: "新闻速览", desc: "百度、今日头条、微博", category: "news" },
-];
 
 function readStoredString(key: string, fallback: string) {
   try {
@@ -246,6 +237,7 @@ export function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatedText, setUpdatedText] = useState("");
   const [shareState, setShareState] = useState("");
+  const [showAllBoards, setShowAllBoards] = useState(false);
   const drawerRef = useRef<HTMLElement | null>(null);
   const searchTimer = useRef<number | undefined>(undefined);
   const requestSeq = useRef(0);
@@ -254,10 +246,22 @@ export function App() {
     return [...boards].sort((a, b) => sourceOrder.indexOf(a.source) - sourceOrder.indexOf(b.source));
   }, [boards]);
 
-  const visibleBoards = useMemo(() => {
+  const categoryBoards = useMemo(() => {
     const sources = categorySources[activeCategory] || categorySources.all;
     return orderedBoards.filter((board) => sources.includes(board.source) && !hiddenSources.has(board.source));
   }, [activeCategory, hiddenSources, orderedBoards]);
+
+  const visibleBoards = useMemo(() => {
+    const target = normalizeTitle(keyword);
+    if (!target) return categoryBoards;
+
+    return categoryBoards
+      .map((board) => ({
+        ...board,
+        items: board.items.filter((item) => normalizeTitle(`${item.title} ${item.summary || ""}`).includes(target)),
+      }))
+      .filter((board) => board.items.length);
+  }, [categoryBoards, keyword]);
 
   const quickItems = useMemo(() => {
     return visibleBoards
@@ -288,8 +292,8 @@ export function App() {
     const total = visibleBoards.reduce((sum, board) => sum + (board.items?.length || 0), 0);
     const hidden = hiddenSources.size ? `，已隐藏 ${hiddenSources.size} 个平台` : "";
     const keywordText = keyword ? `，关键词“${keyword}”` : "";
-    return `当前 ${visibleBoards.length} 个榜单，共 ${total} 条结果${keywordText}${hidden}，缓存约 ${Math.round(ttlSec / 60)} 分钟`;
-  }, [hiddenSources.size, keyword, loading, ttlSec, visibleBoards]);
+    return `${visibleBoards.length} 个榜单 · ${total} 条热点${keywordText}${hidden}`;
+  }, [hiddenSources.size, keyword, loading, visibleBoards]);
 
   const dataSummary = useMemo(() => {
     const live = visibleBoards.filter((board) => board.dataState === "live").length;
@@ -306,12 +310,12 @@ export function App() {
 
   const detailTitleId = selectedHot ? `detail-title-${selectedHot.board.source}-${selectedHot.item.rank}` : undefined;
 
-  async function loadBoards(options: { refresh?: boolean; q?: string } = {}) {
+  async function loadBoards(options: { refresh?: boolean } = {}) {
     const requestId = (requestSeq.current += 1);
-    setLoading(true);
+    if (!boards.length) setLoading(true);
     setRefreshing(Boolean(options.refresh));
     try {
-      const data = await fetchAllHot({ q: options.q ?? keyword, refresh: options.refresh });
+      const data = await fetchAllHot({ refresh: options.refresh });
       if (requestSeq.current !== requestId) return;
       setBoards(data.platforms || []);
       setStatuses(data.statuses || []);
@@ -356,7 +360,7 @@ export function App() {
     );
 
     try {
-      const data = await fetchHotPlatform(source, { q: keyword, refresh: true });
+      const data = await fetchHotPlatform(source, { refresh: true });
       setBoards((current) => current.map((board) => (board.source === source ? data : board)));
       setStatuses((current) =>
         upsertStatus(current, {
@@ -416,10 +420,8 @@ export function App() {
     setPendingKeyword(value);
     window.clearTimeout(searchTimer.current);
     searchTimer.current = window.setTimeout(() => {
-      const nextKeyword = value.trim();
-      setKeyword(nextKeyword);
-      loadBoards({ q: nextKeyword });
-    }, 260);
+      setKeyword(value.trim());
+    }, 120);
   }
 
   function selectArchiveRange(range: ArchiveRange) {
@@ -439,11 +441,6 @@ export function App() {
     }
 
     window.setTimeout(() => setShareState(""), 1600);
-  }
-
-  function applyScene(category: string) {
-    setActiveCategory(category);
-    setViewMode("cards");
   }
 
   function addWatchKeyword() {
@@ -466,7 +463,6 @@ export function App() {
     setKeyword(value);
     setActiveCategory("all");
     setViewMode("cards");
-    loadBoards({ q: value });
   }
 
   function submitFeedback() {
@@ -551,8 +547,8 @@ export function App() {
               <span>热点条目</span>
             </div>
             <div className="status-box">
-              <strong>{ttlSec}</strong>
-              <span>秒缓存</span>
+              <strong>{dataSummary.live + dataSummary.cached}</strong>
+              <span>可用信源</span>
             </div>
           </aside>
         </div>
@@ -575,30 +571,13 @@ export function App() {
           </div>
         </section>
 
-        <section className="scene-panel" aria-label="高频场景">
-          {sceneShortcuts.map((scene) => (
-            <button className={activeCategory === scene.category ? "is-active" : ""} key={scene.category} type="button" onClick={() => applyScene(scene.category)}>
-              <strong>{scene.label}</strong>
-              <span>{scene.desc}</span>
-            </button>
-          ))}
-        </section>
-
         <section className="data-strip" aria-label="数据状态">
-          {hasSampleData ? <span className="strip-warning">当前包含离线示例数据，非实时热点</span> : null}
+          {hasSampleData ? <span className="strip-warning">部分平台使用参考数据，不参与今日重点与综合榜</span> : null}
           <span>{resultStatus}</span>
-          <span>实时 {dataSummary.live}</span>
-          <span>缓存 {dataSummary.cached}</span>
-          <span>降级 {dataSummary.degraded}</span>
-          <span>无 API 兜底 {dataSummary.noPublicApi}</span>
-          <span>失败 {dataSummary.failed}</span>
-          <span>归档快照 {archiveCount}</span>
+          <span>可验证信源 {dataSummary.live + dataSummary.cached}</span>
+          {dataSummary.degraded ? <span>降级 {dataSummary.degraded}</span> : null}
+          {dataSummary.failed ? <span>失败 {dataSummary.failed}</span> : null}
           {updatedText ? <span>更新于 {updatedText}</span> : null}
-          {archiveMessage ? (
-            <span className={archivePersistent === false ? "strip-warning" : ""} title={archiveMessage}>
-              {archivePersistent === false ? "临时归档" : "归档可用"}
-            </span>
-          ) : null}
         </section>
 
         {!loading ? (
@@ -606,51 +585,10 @@ export function App() {
             leads={leadCategories}
             ranking={compositeRanking}
             shareState={shareState}
-            statuses={statuses}
             onSelectItem={(entry) => setSelectedHot({ board: entry.board, item: entry.item })}
             onShare={shareDigest}
           />
         ) : null}
-
-        {!loading ? (
-          <section className="product-grid" aria-label="产品工具">
-            <TrendPanel ranking={compositeRanking} onSelectItem={(entry) => setSelectedHot({ board: entry.board, item: entry.item })} />
-            <WatchPanel
-              draft={watchDraft}
-              keywords={watchKeywords}
-              matches={watchMatches}
-              onAdd={addWatchKeyword}
-              onApply={applyWatchKeyword}
-              onDraftChange={setWatchDraft}
-              onRemove={removeWatchKeyword}
-            />
-          </section>
-        ) : null}
-
-        <details className="home-settings">
-          <summary>我的首页</summary>
-          <div className="source-toggles">
-            {sourceOrder.map((source) => (
-              <label key={source}>
-                <input checked={!hiddenSources.has(source)} type="checkbox" onChange={() => toggleHiddenSource(source)} />
-                <span>{sourceLabels[source]?.name || source}</span>
-              </label>
-            ))}
-          </div>
-        </details>
-
-        <div className="archive-actions" aria-label="历史归档">
-          <span>历史快照</span>
-          <button className={archiveRange === "today" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("today")}>
-            今天
-          </button>
-          <button className={archiveRange === "yesterday" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("yesterday")}>
-            昨天
-          </button>
-          <button className={archiveRange === "7d" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("7d")}>
-            7 天
-          </button>
-        </div>
 
         {loading ? (
           <section className="boards">
@@ -674,9 +612,8 @@ export function App() {
           </section>
         ) : (
           <>
-            <FocusPanel boards={visibleBoards} leads={leadCategories} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
             <CompositePanel ranking={compositeRanking} shareState={shareState} onShare={shareDigest} onSelectItem={(board, item) => setSelectedHot({ board, item })} />
-            <section className="boards" aria-label="热点榜单">
+            <section className={`boards ${showAllBoards ? "show-all" : ""}`} aria-label="热点榜单">
               {visibleBoards.map((board) => (
                 <HotCard
                   board={board}
@@ -688,15 +625,52 @@ export function App() {
                 />
               ))}
             </section>
-            <SourceStatusPanel boards={visibleBoards} statuses={statuses} />
-            <FeedbackPanel
-              feedbackDraft={feedbackDraft}
-              savedCount={savedFeedbackCount}
-              sourceDraft={sourceDraft}
-              onFeedbackChange={setFeedbackDraft}
-              onSourceChange={setSourceDraft}
-              onSubmit={submitFeedback}
-            />
+            {visibleBoards.length > 4 ? (
+              <button className="mobile-board-more" type="button" onClick={() => setShowAllBoards((current) => !current)}>
+                {showAllBoards ? "收起平台榜单" : `查看全部 ${visibleBoards.length} 个平台`}
+              </button>
+            ) : null}
+            <details className="secondary-tools">
+              <summary>我的关注、历史与信源状态</summary>
+              <div className="secondary-tools-content">
+                <WatchPanel
+                  draft={watchDraft}
+                  keywords={watchKeywords}
+                  matches={watchMatches}
+                  onAdd={addWatchKeyword}
+                  onApply={applyWatchKeyword}
+                  onDraftChange={setWatchDraft}
+                  onRemove={removeWatchKeyword}
+                />
+                <details className="home-settings">
+                  <summary>管理首页信源</summary>
+                  <div className="source-toggles">
+                    {sourceOrder.map((source) => (
+                      <label key={source}>
+                        <input checked={!hiddenSources.has(source)} type="checkbox" onChange={() => toggleHiddenSource(source)} />
+                        <span>{sourceLabels[source]?.name || source}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+                <div className="archive-actions" aria-label="历史归档">
+                  <span>历史快照 {archiveCount}</span>
+                  <button className={archiveRange === "today" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("today")}>今天</button>
+                  <button className={archiveRange === "yesterday" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("yesterday")}>昨天</button>
+                  <button className={archiveRange === "7d" ? "is-active" : ""} type="button" onClick={() => selectArchiveRange("7d")}>7 天</button>
+                  {archiveMessage ? <span className={archivePersistent === false ? "strip-warning" : ""}>{archiveMessage}</span> : null}
+                </div>
+                <SourceStatusPanel boards={categoryBoards} statuses={statuses} />
+                <FeedbackPanel
+                  feedbackDraft={feedbackDraft}
+                  savedCount={savedFeedbackCount}
+                  sourceDraft={sourceDraft}
+                  onFeedbackChange={setFeedbackDraft}
+                  onSourceChange={setSourceDraft}
+                  onSubmit={submitFeedback}
+                />
+              </div>
+            </details>
           </>
         )}
       </main>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RankedHot } from "../utils/insights";
 import type { HotItem, HotPlatform } from "../types/hot";
 import { getMetricText, getSourceName } from "./config";
@@ -11,6 +12,9 @@ type Props = {
 };
 
 export function CompositePanel({ ranking, onSelectItem, onShare, shareState }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleRanking = expanded ? ranking.slice(0, 20) : ranking.slice(0, 10);
+
   return (
     <section className="composite-panel" aria-label="全网综合热度">
       <header className="composite-head">
@@ -25,7 +29,7 @@ export function CompositePanel({ ranking, onSelectItem, onShare, shareState }: P
       </header>
 
       <ol className="composite-list">
-        {ranking.map((entry, index) => {
+        {visibleRanking.map((entry, index) => {
           const hotStatus = getHotStatus(entry.item, entry.score);
 
           return (
@@ -53,6 +57,12 @@ export function CompositePanel({ ranking, onSelectItem, onShare, shareState }: P
           );
         })}
       </ol>
+
+      {ranking.length > 10 ? (
+        <button className="composite-more" type="button" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? "收起到 Top 10" : "继续查看 Top 20"}
+        </button>
+      ) : null}
 
       <footer className="composite-foot">
         <span>数字说明：综合分是本站排序分，不是平台原始热度。它由榜内排名、热度数值、多平台相似信号和数据状态共同计算，用来判断“优先看哪条”。</span>

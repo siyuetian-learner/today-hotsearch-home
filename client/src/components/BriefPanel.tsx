@@ -1,32 +1,25 @@
-import type { SourceStatus } from "../types/hot";
 import type { LeadCategory, RankedHot } from "../utils/insights";
 import { getMetricText, getSourceName } from "./config";
 
 type Props = {
   leads: LeadCategory[];
   ranking: RankedHot[];
-  statuses: SourceStatus[];
   onSelectItem: (entry: RankedHot) => void;
   onShare: () => void;
   shareState: string;
 };
 
-function getStatusCount(statuses: SourceStatus[], status: string) {
-  return statuses.filter((item) => item.status === status).length;
-}
-
-export function BriefPanel({ leads, ranking, statuses, onSelectItem, onShare, shareState }: Props) {
-  const topItems = ranking.slice(0, 3);
-  const liveCount = getStatusCount(statuses, "success") + getStatusCount(statuses, "cached");
-  const degradedCount = getStatusCount(statuses, "degraded");
-  const failedCount = getStatusCount(statuses, "failed");
+export function BriefPanel({ leads, ranking, onSelectItem, onShare, shareState }: Props) {
+  const topItems = ranking.slice(0, 5);
+  const primary = topItems[0];
+  const sourceCount = new Set(ranking.map((entry) => entry.board.source)).size;
 
   return (
     <section className="brief-panel" aria-label="今日快报">
       <header className="brief-head">
         <div>
-          <span className="panel-kicker">Daily brief</span>
-          <h2>今日快报</h2>
+          <span className="panel-kicker">TODAY'S ESSENTIALS</span>
+          <h2>今日重点</h2>
         </div>
         <button className="share-button" type="button" onClick={onShare}>
           {shareState || "复制快报"}
@@ -35,9 +28,9 @@ export function BriefPanel({ leads, ranking, statuses, onSelectItem, onShare, sh
 
       <div className="brief-grid">
         <article className="brief-primary">
-          <span>今日主线</span>
-          <h3>{leads[0]?.title || topItems[0]?.item.title || "等待热点信号"}</h3>
-          <p>{leads[0]?.desc || "系统正在聚合多个中文平台和技术社区的实时热度。"}</p>
+          <span>最值得先看</span>
+          <h3>{primary?.item.title || leads[0]?.title || "等待热点信号"}</h3>
+          <p>{primary?.summary || leads[0]?.desc || "系统正在聚合多个中文平台和技术社区的实时热度。"}</p>
         </article>
 
         <div className="brief-points" aria-label="重点热点">
@@ -54,11 +47,9 @@ export function BriefPanel({ leads, ranking, statuses, onSelectItem, onShare, sh
         </div>
       </div>
 
-      <footer className="brief-health" aria-label="数据健康度">
-        <span>可用信源 {liveCount}</span>
-        <span>降级兜底 {degradedCount}</span>
-        <span>失败 {failedCount}</span>
-        <span>缓存 {statuses.length ? "已启用" : "待更新"}</span>
+      <footer className="brief-health" aria-label="内容说明">
+        <span>基于 {sourceCount} 个可验证信源整理</span>
+        <span>示例和故障数据不参与排序</span>
       </footer>
     </section>
   );
